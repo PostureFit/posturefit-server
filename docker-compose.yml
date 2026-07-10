@@ -10,7 +10,7 @@ services:
       - --max_connections=20
       - --table_open_cache=200
       - --performance_schema=OFF
-      - --query_cache_type=0
+      # - --query_cache_type=0
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     environment:
@@ -18,8 +18,8 @@ services:
       MYSQL_DATABASE: posturfit
       MYSQL_USER: ${MYSQL_USER:-posturfit}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "127.0.0.1:3306:3306"
+    # ports:
+    #   - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     mem_limit: 512m
@@ -38,6 +38,8 @@ services:
     restart: unless-stopped
     expose:
       - "8000"
+    ports:
+      - "127.0.0.1:8001:8000"
     depends_on:
       mysql:
         condition: service_healthy
@@ -69,20 +71,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: posturfit_nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - app_static:/app/static:ro
-    depends_on:
-      - app
-    mem_limit: 64m
-    mem_reservation: 32m
 
 volumes:
   mysql_data:

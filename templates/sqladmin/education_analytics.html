@@ -1,0 +1,414 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="pf" id="pf-root" style="width:100%;">
+
+  <div class="pf-sec-label">Analitik Artikel Edukasi</div>
+
+  <!-- Row 1 -->
+  <div class="pf-row2">
+    <div class="pf-card">
+      <div class="pf-card-hd">
+        <div class="pf-card-title">Distribusi Source Data</div>
+        <span class="pf-card-tag">Bar</span>
+      </div>
+      <div class="pf-wrap">
+        <canvas id="sourceBarChart"></canvas>
+        <div class="pf-empty" id="sourceBarEmpty" style="display:none;">
+          <div class="pf-empty-ico">📊</div>
+          <p>Belum ada data sumber</p>
+        </div>
+      </div>
+    </div>
+    <div class="pf-card">
+      <div class="pf-card-hd">
+        <div class="pf-card-title">Jumlah Data per Sumber &amp; Kategori</div>
+        <span class="pf-card-tag">Grouped Bar</span>
+      </div>
+      <div class="pf-wrap">
+        <canvas id="groupedBarChart"></canvas>
+        <div class="pf-empty" id="groupedBarEmpty" style="display:none;">
+          <div class="pf-empty-ico">📊</div>
+          <p>Belum ada data sumber &amp; kategori</p>
+        </div>
+      </div>
+      <div class="pf-legend" id="groupedBarLegend"></div>
+    </div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="pf-row2" style="margin-top:16px;">
+    <div class="pf-card">
+      <div class="pf-card-hd">
+        <div class="pf-card-title">Artikel per Kategori</div>
+        <span class="pf-card-tag">Horizontal Bar</span>
+      </div>
+      <div class="pf-wrap">
+        <canvas id="catHBarChart"></canvas>
+        <div class="pf-empty" id="catHBarEmpty" style="display:none;">
+          <div class="pf-empty-ico">📊</div>
+          <p>Belum ada kategori</p>
+        </div>
+      </div>
+    </div>
+    <div class="pf-card">
+      <div class="pf-card-hd">
+        <div class="pf-card-title">Proporsi Kategori Artikel</div>
+        <span class="pf-card-tag">Pie</span>
+      </div>
+      <div class="pf-wrap">
+        <canvas id="pieChart"></canvas>
+        <div class="pf-empty" id="pieEmpty" style="display:none;">
+          <div class="pf-empty-ico">📊</div>
+          <p>Belum ada data kategori</p>
+        </div>
+      </div>
+      <div class="pf-legend" id="pieLegend"></div>
+    </div>
+  </div>
+
+  <!-- Row 3 -->
+  <div class="pf-row2" style="margin-top:16px;">
+    <div class="pf-card">
+      <div class="pf-card-hd">
+        <div class="pf-card-title">Aktivitas Sync 7 Hari</div>
+        <span class="pf-card-tag">Line</span>
+      </div>
+      <div class="pf-wrap">
+        <canvas id="lineChart"></canvas>
+        <div class="pf-empty" id="lineEmpty" style="display:none;">
+          <div class="pf-empty-ico">📈</div>
+          <p>Belum ada aktivitas sync</p>
+        </div>
+      </div>
+    </div>
+    <div class="pf-card">
+      <div class="pf-card-hd">
+        <div class="pf-card-title">Distribusi Konten Edukasi</div>
+        <span class="pf-card-tag">Radar</span>
+      </div>
+      <div class="pf-wrap">
+        <canvas id="radarChart"></canvas>
+        <div class="pf-empty" id="radarEmpty" style="display:none;">
+          <div class="pf-empty-ico">📊</div>
+          <p>Belum ada data konten</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="pf-toast" id="pf-toast" style="display:none;" role="alert">
+  ⚠️ Gagal memuat data analitik edukasi.
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var COLORS = ['#1d6fe8','#10b981','#f97316','#06b6d4','#ec4899','#eab308','#4d94f0','#14b8a6'];
+
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color       = '#94a3b8';
+
+  var charts = {};
+
+  /* ── Empty state helper ─────────────────────────────────────────── */
+  function handleEmpty(canvasId, emptyId, labels, values) {
+    var canvas = document.getElementById(canvasId);
+    var empty  = document.getElementById(emptyId);
+    var has    = labels && labels.length > 0 && values && values.length > 0;
+    canvas.style.display = has ? '' : 'none';
+    empty.style.display  = has ? 'none' : 'flex';
+    return has;
+  }
+
+  /* ── [1] Vertical Bar — Distribusi Source ────────────────────────── */
+  function buildSourceBar(labels, values) {
+    if (!handleEmpty('sourceBarChart','sourceBarEmpty',labels,values)) return;
+    if (charts.sourceBar) charts.sourceBar.destroy();
+    charts.sourceBar = new Chart(document.getElementById('sourceBarChart'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Artikel',
+          data: values,
+          backgroundColor: values.map(function(v,i){ return COLORS[i % COLORS.length] + '99'; }),
+          borderColor: values.map(function(v,i){ return COLORS[i % COLORS.length]; }),
+          borderWidth: 1,
+          borderRadius: 6,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#0f172a', cornerRadius: 12, padding: 12 },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(99,102,241,.07)' }, border: { display: false }, ticks: { font: { size: 11 }, stepSize: 1 } },
+        },
+        animation: { duration: 950 },
+      },
+    });
+  }
+
+  /* ── [2] Grouped Bar — Sumber & Kategori ────────────────────────── */
+  function buildGroupedBar(sourceKeys, catKeys, dataMap) {
+    if (!handleEmpty('groupedBarChart','groupedBarEmpty',sourceKeys,sourceKeys)) return;
+    if (charts.groupedBar) charts.groupedBar.destroy();
+
+    var datasets = catKeys.map(function(cat, i){
+      return {
+        label: cat,
+        data: sourceKeys.map(function(src){ return (dataMap[src] && dataMap[src][cat]) || 0; }),
+        backgroundColor: COLORS[i % COLORS.length],
+        borderRadius: 4,
+        borderSkipped: false,
+      };
+    });
+
+    charts.groupedBar = new Chart(document.getElementById('groupedBarChart'), {
+      type: 'bar',
+      data: { labels: sourceKeys, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#0f172a', cornerRadius: 12, padding: 12, mode: 'index' },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: '600' } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(16,185,129,.07)' }, border: { display: false }, ticks: { font: { size: 11 }, stepSize: 1 } },
+        },
+        animation: { duration: 950 },
+      },
+    });
+
+    /* manual legend */
+    var legendEl = document.getElementById('groupedBarLegend');
+    legendEl.innerHTML = '';
+    catKeys.forEach(function(cat, i){
+      var item = document.createElement('span');
+      item.className = 'pf-leg';
+      item.innerHTML = '<span class="pf-leg-dot" style="background:' + COLORS[i % COLORS.length] + '"></span>' + cat;
+      legendEl.appendChild(item);
+    });
+  }
+
+  /* ── [3] Horizontal Bar — Artikel per Kategori ──────────────────── */
+  function buildCatHBar(labels, values) {
+    if (!handleEmpty('catHBarChart','catHBarEmpty',labels,values)) return;
+    if (charts.catHBar) charts.catHBar.destroy();
+    charts.catHBar = new Chart(document.getElementById('catHBarChart'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Artikel',
+          data: values,
+          backgroundColor: values.map(function(v,i){ return COLORS[i % COLORS.length] + 'CC'; }),
+          borderColor: values.map(function(v,i){ return COLORS[i % COLORS.length]; }),
+          borderWidth: 1,
+          borderRadius: 6,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#0f172a', cornerRadius: 12, padding: 12 },
+        },
+        scales: {
+          x: { beginAtZero: true, grid: { color: 'rgba(249,115,22,.07)' }, border: { display: false }, ticks: { font: { size: 11 }, stepSize: 1 } },
+          y: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
+        },
+        animation: { duration: 950 },
+      },
+    });
+  }
+
+  /* ── [4] Pie — Proporsi Kategori ────────────────────────────────── */
+  function buildPie(labels, values) {
+    if (!handleEmpty('pieChart','pieEmpty',labels,values)) return;
+    if (charts.pie) charts.pie.destroy();
+    charts.pie = new Chart(document.getElementById('pieChart'), {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: COLORS.slice(0, values.length),
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 12,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a', cornerRadius: 12, padding: 12,
+            callbacks: {
+              label: function(ctx){
+                var total = ctx.dataset.data.reduce(function(a,b){ return a + b; }, 0);
+                var pct   = ((ctx.parsed / total) * 100).toFixed(1);
+                return '  ' + ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+              },
+            },
+          },
+        },
+        animation: { animateRotate: true, duration: 1000 },
+      },
+    });
+
+    /* manual legend */
+    var legendEl = document.getElementById('pieLegend');
+    legendEl.innerHTML = '';
+    labels.forEach(function(label, i){
+      var item = document.createElement('span');
+      item.className = 'pf-leg';
+      item.innerHTML = '<span class="pf-leg-dot" style="background:' + COLORS[i % COLORS.length] + '"></span>' + label;
+      legendEl.appendChild(item);
+    });
+  }
+
+  /* ── [5] Line — Aktivitas Sync 7 Hari ───────────────────────────── */
+  function buildLine(labels, values) {
+    if (!handleEmpty('lineChart','lineEmpty',labels,values)) return;
+    if (charts.line) charts.line.destroy();
+    charts.line = new Chart(document.getElementById('lineChart'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Artikel',
+          data: values,
+          borderColor: '#06b6d4',
+          backgroundColor: 'rgba(6,182,212,.12)',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#06b6d4',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.4,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#0f172a', cornerRadius: 12, padding: 12 },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(6,182,212,.07)' }, border: { display: false }, ticks: { font: { size: 11 }, stepSize: 1 } },
+        },
+        animation: { duration: 900 },
+      },
+    });
+  }
+
+  /* ── [6] Radar — Distribusi Konten Edukasi ──────────────────────── */
+  function buildRadar(labels, values) {
+    if (!handleEmpty('radarChart','radarEmpty',labels,values)) return;
+    if (charts.radar) charts.radar.destroy();
+    charts.radar = new Chart(document.getElementById('radarChart'), {
+      type: 'radar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Artikel',
+          data: values,
+          backgroundColor: 'rgba(139,92,246,.15)',
+          borderColor: '#4d94f0',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#4d94f0',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#0f172a', cornerRadius: 12, padding: 12 },
+        },
+        scales: {
+          r: {
+            beginAtZero: true,
+            grid: { color: 'rgba(139,92,246,.12)' },
+            angleLines: { color: 'rgba(139,92,246,.12)' },
+            pointLabels: { font: { size: 11, weight: '600' }, color: '#64748b' },
+            ticks: { font: { size: 10 }, backdropColor: 'transparent', stepSize: 1 },
+          },
+        },
+        animation: { duration: 950 },
+      },
+    });
+  }
+
+  /* ── Main render ────────────────────────────────────────────────── */
+  function render(data) {
+    var edu = data.edu_by_category || {};
+    var catLabels = Object.keys(edu);
+    var catValues = Object.values(edu);
+
+    /* Chart 1 — Source Bar */
+    var src = data.edu_by_source || {};
+    buildSourceBar(Object.keys(src), Object.values(src));
+
+    /* Chart 2 — Grouped Bar */
+    var sc = data.edu_source_category || {};
+    var srcKeys = Object.keys(sc);
+    var allCats = [];
+    srcKeys.forEach(function(sk){
+      Object.keys(sc[sk] || {}).forEach(function(ck){
+        if (allCats.indexOf(ck) === -1) allCats.push(ck);
+      });
+    });
+    buildGroupedBar(srcKeys, allCats, sc);
+
+    /* Chart 3 — Horizontal Bar (kategori) */
+    buildCatHBar(catLabels.slice(), catValues.slice());
+
+    /* Chart 4 — Pie (kategori) */
+    buildPie(catLabels.slice(), catValues.slice());
+
+    /* Chart 5 — Line (sync timeline) */
+    var tl = data.edu_sync_timeline || {};
+    buildLine(Object.keys(tl), Object.values(tl));
+
+    /* Chart 6 — Radar (kategori) */
+    buildRadar(catLabels.slice(), catValues.slice());
+  }
+
+  /* ── Fetch & init ───────────────────────────────────────────────── */
+  fetch('/admin-api/stats')
+    .then(function(res){ if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+    .then(render)
+    .catch(function(err){
+      console.error('[PostureFit EduAnalytics] Failed to load stats:', err);
+      var toast = document.getElementById('pf-toast');
+      if (toast) {
+        toast.style.display = 'flex';
+        setTimeout(function(){ toast.style.opacity = '0'; setTimeout(function(){ toast.style.display = 'none'; toast.style.opacity = ''; }, 350); }, 4500);
+      }
+    });
+
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,395 @@
+{% extends "sqladmin/base.html" %}
+
+{% block head_tail %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/posturfit-admin.css?v=10">
+<style>
+  body { margin: 0; background: var(--bg); }
+  .navbar-vertical { display: none !important; }
+
+  /* ── Sidebar collapse (inline, no-cache) ─── */
+  .da-sidebar { transition: width 250ms ease !important; }
+  .da-sidebar.collapsed { width: 80px !important; }
+  .da-sidebar.collapsed .da-logo-text,
+  .da-sidebar.collapsed .da-nav-label,
+  .da-sidebar.collapsed .da-nav-badge { display: none !important; }
+  .da-sidebar.collapsed .da-nav-item { justify-content: center !important; padding: 9px 0 !important; gap: 0 !important; }
+  .da-sidebar.collapsed .da-nav-item svg { margin: 0 !important; }
+  .da-sidebar.collapsed .da-sidebar-logo { justify-content: center !important; padding: 20px 0 16px !important; gap: 0 !important; }
+  .da-sidebar.collapsed .da-sidebar-nav { padding: 8px 0 !important; }
+  .da-sidebar.collapsed .da-nav-item.active::before { left: auto !important; right: 0 !important; }
+  .da-sidebar.collapsed .da-sidebar-close { display: none !important; }
+  .da-sidebar.collapsed .da-nav-text { display: none !important; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="da-layout">
+
+  <!-- Sidebar Overlay (mobile) -->
+  <div class="da-sidebar-overlay" id="daSidebarOverlay"></div>
+
+  <!-- ══════════════════════════════════════════
+       SIDEBAR
+       ══════════════════════════════════════════ -->
+  <aside class="da-sidebar" id="daSidebar">
+
+    <!-- Logo -->
+    <div class="da-sidebar-logo">
+      <img src="/static/Logo_1.png" alt="PostureFit" style="width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;" />
+      <div class="da-logo-text">Posture<em>Fit</em></div>
+      <button class="da-sidebar-close" id="daSidebarClose" aria-label="Tutup sidebar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Navigasi -->
+    <nav class="da-sidebar-nav">
+
+      <div class="da-nav-label">Menu</div>
+
+      <a href="/admin/" class="da-nav-item {% if request.url.path == '/admin/' %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="da-nav-text">Dashboard</span>
+      </a>
+
+      <a href="/admin/user/list" class="da-nav-item {% if 'user' in request.url.path and 'admin-user' not in request.url.path %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="da-nav-text">Pengguna</span>
+        <span class="da-nav-badge" id="nav-user-count">—</span>
+      </a>
+
+      <a href="/admin/cv-assessment/list" class="da-nav-item {% if 'cv-assessment' in request.url.path %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span class="da-nav-text">Scan Postur</span>
+      </a>
+
+      <a href="/admin/daily-workout-plan/list" class="da-nav-item {% if 'daily-workout-plan' in request.url.path %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2"/></svg>
+        <span class="da-nav-text">Rencana Latihan</span>
+      </a>
+
+      <div class="da-nav-label">Konten</div>
+
+      <a href="/admin/education-article/list" class="da-nav-item {% if 'education-article' in request.url.path %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span class="da-nav-text">Artikel Edukasi</span>
+      </a>
+
+      <a href="/admin-cp/education-analytics" class="da-nav-item {% if 'education-analytics' in request.url.path %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2zm0 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v10m-6 0a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2m0 0V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/></svg>
+        <span class="da-nav-text">Analitik Edukasi</span>
+      </a>
+
+      <a href="/admin/workout-log/list" class="da-nav-item {% if 'workout-log' in request.url.path %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="da-nav-text">Riwayat Workout</span>
+      </a>
+
+      <div class="da-nav-label">Sistem</div>
+
+      <a href="/admin/notification/list" class="da-nav-item {% if 'notification' in request.url.path %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="da-nav-text">Notifikasi</span>
+      </a>
+
+      <a href="/admin/admin-user/list" class="da-nav-item {% if 'admin-user' in request.url.path %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="da-nav-text">Pengaturan</span>
+      </a>
+
+    </nav>
+
+  </aside>
+
+  <!-- ══════════════════════════════════════════
+       MAIN AREA
+       ══════════════════════════════════════════ -->
+  <div class="da-main">
+
+    <!-- Header -->
+    <header class="da-header">
+      <button class="da-header-toggle" id="daSidebarToggle" aria-label="Toggle sidebar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+
+      <h1 class="da-header-title">{{ title|default('Dashboard') }}</h1>
+
+      <div class="da-header-spacer"></div>
+
+      <!-- Global Search -->
+      <div class="da-search-global" id="daGlobalSearch">
+        <span class="da-search-global-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input class="da-search-global-input" id="daGlobalSearchInput" type="text" placeholder="Cari pengguna, artikel, latihan..." autocomplete="off" />
+        <span class="da-search-global-hint">Ctrl+K</span>
+        <div class="da-search-global-dropdown" id="daGlobalSearchDropdown"></div>
+      </div>
+
+      <button class="da-search-icon-btn" id="daSearchIconBtn" aria-label="Search">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+
+      <!-- Dark Mode Toggle -->
+      <button class="da-theme-toggle" id="daThemeToggle" aria-label="Toggle theme">
+        <svg id="daThemeIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+
+      <!-- User Menu -->
+      <div class="da-header-user" id="daUserMenu" tabindex="0" role="button">
+        <div class="da-header-avatar">{{ request.session.get('admin_username', 'AD')[:2]|upper }}</div>
+        <div class="da-header-user-info">
+          <span class="da-header-user-name">{{ request.session.get('admin_username', 'Administrator')|capitalize }}</span>
+        </div>
+        <svg class="da-header-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+
+        <!-- Dropdown -->
+        <div class="da-header-dropdown">
+          <a href="/admin-cp/profile" class="da-dropdown-item">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profil Saya
+          </a>
+          <div class="da-dropdown-divider"></div>
+          <a href="{{ request.url_for('admin:logout') }}" class="da-dropdown-item danger">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Keluar
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="da-content">
+      <div class="da-content-inner">
+        {% block content %}{% endblock %}
+        {% block flash %}
+          {% include 'sqladmin/flash.html' %}
+        {% endblock %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var sidebar = document.getElementById('daSidebar');
+  var overlay = document.getElementById('daSidebarOverlay');
+  var toggle  = document.getElementById('daSidebarToggle');
+  var userMenu = document.getElementById('daUserMenu');
+  var closeBtn = document.getElementById('daSidebarClose');
+  var collapsed = false;
+
+  function isDesktop() {
+    return window.innerWidth > 1199;
+  }
+
+  function toggleSidebar() {
+    if (isDesktop()) {
+      collapsed = !collapsed;
+      sidebar.classList.toggle('collapsed', collapsed);
+    } else {
+      var isOpen = sidebar.classList.contains('open');
+      sidebar.classList.toggle('open', !isOpen);
+      if (overlay) overlay.classList.toggle('show', !isOpen);
+    }
+  }
+
+  /* ── Sidebar toggle ──────────────────────────── */
+  if (toggle && sidebar) {
+    toggle.addEventListener('click', toggleSidebar);
+  }
+
+  /* ── Overlay click closes sidebar (mobile) ───── */
+  if (overlay && sidebar) {
+    overlay.addEventListener('click', function () {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    });
+  }
+
+  /* ── Close button (mobile) ───────────────────── */
+  if (closeBtn && sidebar) {
+    closeBtn.addEventListener('click', function () {
+      sidebar.classList.remove('open');
+      if (overlay) overlay.classList.remove('show');
+    });
+  }
+
+  /* ── Resize: switch desktop↔mobile ───────────── */
+  window.addEventListener('resize', function () {
+    if (isDesktop()) {
+      sidebar.classList.remove('open');
+      if (overlay) overlay.classList.remove('show');
+      collapsed = sidebar.classList.contains('collapsed');
+    } else {
+      sidebar.classList.remove('collapsed');
+      collapsed = false;
+    }
+  });
+
+  /* ── User dropdown toggle ────────────────────── */
+  if (userMenu) {
+    userMenu.addEventListener('click', function (e) {
+      e.stopPropagation();
+      this.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function () {
+      if (userMenu) userMenu.classList.remove('open');
+    });
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     THEME MANAGER
+     ═══════════════════════════════════════════════════════ */
+  (function () {
+    var themeToggle = document.getElementById('daThemeToggle');
+    var themeIcon   = document.getElementById('daThemeIcon');
+    var STORAGE_KEY = 'pf_admin_theme';
+
+    function getTheme() {
+      return localStorage.getItem(STORAGE_KEY) || 'light';
+    }
+
+    function setTheme(mode) {
+      document.documentElement.setAttribute('data-bs-theme', mode);
+      localStorage.setItem(STORAGE_KEY, mode);
+      if (themeIcon) {
+        if (mode === 'dark') {
+          themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+        } else {
+          themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+        }
+      }
+    }
+
+    // Init theme on load
+    setTheme(getTheme());
+
+    if (themeToggle) {
+      themeToggle.addEventListener('click', function () {
+        setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+      });
+    }
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     GLOBAL SEARCH
+     ═══════════════════════════════════════════════════════ */
+  (function () {
+    var input      = document.getElementById('daGlobalSearchInput');
+    var dropdown   = document.getElementById('daGlobalSearchDropdown');
+    var searchEl   = document.getElementById('daGlobalSearch');
+    var searchIcon = document.getElementById('daSearchIconBtn');
+
+    if (!input || !dropdown) return;
+
+    // Search data sources
+    var searchItems = [
+      { label: 'Dashboard',          emoji: '🏠', url: '/admin/',            keywords: 'dashboard beranda utama' },
+      { label: 'Data Pengguna',      emoji: '👤', url: '/admin/user/list',   keywords: 'pengguna user akun profile' },
+      { label: 'Scan Postur',        emoji: '📸', url: '/admin/cv-assessment/list', keywords: 'scan postur cv assessment analisis' },
+      { label: 'Rencana Latihan',    emoji: '🏋️', url: '/admin/daily-workout-plan/list', keywords: 'latihan rencana workout plan program' },
+      { label: 'Artikel Edukasi',    emoji: '📚', url: '/admin/education-article/list', keywords: 'artikel edukasi education konten' },
+      { label: 'Riwayat Workout',    emoji: '🏃', url: '/admin/workout-log/list',   keywords: 'workout log riwayat latihan history' },
+      { label: 'Notifikasi',         emoji: '🔔', url: '/admin/notification/list', keywords: 'notifikasi notification pesan' },
+      { label: 'Pengaturan Admin',   emoji: '⚙️', url: '/admin/admin-user/list',   keywords: 'pengaturan setting admin user' },
+      { label: 'Analitik Edukasi',   emoji: '📊', url: '/admin-cp/education-analytics', keywords: 'analitik analytics statistik edukasi' },
+      { label: 'Profil Saya',        emoji: '👤', url: '/admin-cp/profile',   keywords: 'profil profile saya admin' },
+    ];
+
+    function filterItems(query) {
+      if (!query || query.length < 1) return [];
+      var q = query.toLowerCase();
+      return searchItems.filter(function (item) {
+        return item.label.toLowerCase().indexOf(q) !== -1 ||
+               item.keywords.toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
+    function renderDropdown(results) {
+      if (!results.length) {
+        dropdown.innerHTML = '<div class="da-search-global-empty">Tidak ditemukan</div>';
+        dropdown.classList.add('show');
+        return;
+      }
+      var html = '';
+      results.forEach(function (item) {
+        html += '<a href="' + item.url + '" class="da-search-global-item">' +
+                '<span class="emoji">' + item.emoji + '</span>' +
+                '<span class="label">' + item.label + '</span>' +
+                '</a>';
+      });
+      dropdown.innerHTML = html;
+      dropdown.classList.add('show');
+    }
+
+    input.addEventListener('input', function () {
+      renderDropdown(filterItems(this.value));
+    });
+
+    input.addEventListener('focus', function () {
+      if (this.value.trim()) {
+        renderDropdown(filterItems(this.value));
+      }
+    });
+
+    // Close on escape
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        dropdown.classList.remove('show');
+        input.blur();
+      }
+    });
+
+    // Close on click outside
+    document.addEventListener('click', function (e) {
+      if (!searchEl.contains(e.target)) {
+        dropdown.classList.remove('show');
+      }
+    });
+
+    // Ctrl+K / Cmd+K shortcut
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    });
+
+    // Mobile search toggle
+    if (searchIcon && searchEl) {
+      searchIcon.addEventListener('click', function () {
+        searchEl.classList.toggle('mobile-open');
+        if (searchEl.classList.contains('mobile-open')) {
+          setTimeout(function () { input.focus(); }, 100);
+        }
+      });
+
+      // Close mobile search on escape
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && searchEl.classList.contains('mobile-open')) {
+          searchEl.classList.remove('mobile-open');
+        }
+      });
+    }
+  })();
+
+  /* ── Fetch user count badge ──────────────────── */
+  fetch('/admin-api/stats')
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      var b = document.getElementById('nav-user-count');
+      if (b && data.total_users) {
+        b.textContent = data.total_users.toLocaleString('id-ID');
+      }
+    })
+    .catch(function () {});
+})();
+</script>
+{% endblock %}

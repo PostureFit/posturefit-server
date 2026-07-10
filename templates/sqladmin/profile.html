@@ -1,0 +1,43 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="da-section-label">Profil Admin</div>
+
+<div class="da-broadcast-card" style="max-width: 600px;">
+  <div style="display: flex; align-items: center; gap: 24px; padding: 32px 28px 0;">
+    <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #1d6fe8, #4d94f0); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: white; flex-shrink: 0;">
+      {{ request.session.get('admin_username', 'AD')[:2]|upper }}
+    </div>
+    <div>
+      <h2 style="margin: 0 0 4px; font-size: 22px; color: var(--text); letter-spacing: -0.4px;">{{ current_admin.username|capitalize }}</h2>
+      <span class="pf-welcome-tag" style="margin: 0 0 6px; padding: 4px 10px; font-size: 10px; display: inline-flex;">
+        <span class="pf-welcome-tag-dot"></span> Aktif
+      </span>
+      <p style="margin: 0; color: var(--text-muted); font-size: 13px; font-weight: 500;">Super Administrator</p>
+    </div>
+  </div>
+
+  <div style="padding: 24px 28px 28px; display: flex; flex-direction: column; gap: 12px;">
+    <div style="padding: 14px 18px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);">
+      <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">Username</div>
+      <div style="font-size: 14px; font-weight: 600; color: var(--text-body);">{{ current_admin.username }}</div>
+    </div>
+
+    <div style="padding: 14px 18px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);">
+      <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">Email</div>
+      <div style="font-size: 14px; font-weight: 600; color: var(--text-body);">{{ current_admin.email or 'Belum diatur' }}</div>
+    </div>
+
+    <div style="padding: 14px 18px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);">
+      <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">Akun Dibuat</div>
+      <div style="font-size: 14px; font-weight: 600; color: var(--text-body);">{{ current_admin.created_at.strftime('%d %B %Y, %H:%M') if current_admin.created_at else '-' }}</div>
+    </div>
+  </div>
+
+  <div style="padding: 0 28px 28px;">
+    <a href="/admin-cp/change-password" class="pf-action-btn primary" style="text-decoration: none;">
+      🔑 Ganti Password
+    </a>
+  </div>
+</div>
+{% endblock %}

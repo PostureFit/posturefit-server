@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Firebase key files
+firebase-key.json
+firebase_key.json
+
+# Database & sensitive files
+*.sqlite3
+*.db
+*.sql
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+output.txt
+server_error.txt
+server_output.txt
+
+# Build & Distribution
+dist/
+build/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+test_*.py
+start_test.py
+get_token.py
+
+# Utility scripts (no secrets, but not for production)
+seed_user.py
+create_admin.py
+alter_db.py
+alter_db_posture.py
+
+# Temp files
+fix_db.py
+*.bat
+
+# Static uploaded files (keep dir, ignore contents)
+static/profiles/
+static/scans/

@@ -1,0 +1,34 @@
+{% extends "sqladmin/layout.html" %}
+{% from 'sqladmin/_macros.html' import render_form_fields %}
+{% block content %}
+<div class="col-12" style="max-width:800px;">
+  <div class="da-form-card">
+    <div class="da-form-header">
+      <h3 class="da-form-title">Tambah {{ model_view.name }}</h3>
+    </div>
+    <div class="da-form-body">
+      {% block create_form %}
+      <form action="{{ url_for('admin:create', identity=model_view.identity) }}" method="POST"
+        enctype="multipart/form-data">
+        {% if error %}
+        <div class="da-alert da-alert-danger">{{ error }}</div>
+        {% endif %}
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          {{ render_form_fields(form, form_opts=form_opts, ajax_lookup_url=url_for('admin:ajax_lookup', identity=model_view.identity)) }}
+        </div>
+        {% endblock %}
+      </form>
+    </div>
+    <div class="da-form-footer">
+      <a href="{{ url_for('admin:list', identity=model_view.identity) }}" class="da-btn-secondary">Batal</a>
+      {% block submit_buttons_bottom %}
+      <button type="submit" name="save" value="Save" class="da-btn da-btn-primary">Simpan</button>
+      {% if model_view.can_edit %}
+      <button type="submit" name="save" value="Save and continue editing" class="da-btn da-btn-secondary">Simpan & Edit</button>
+      {% endif %}
+      <button type="submit" name="save" value="Save and add another" class="da-btn da-btn-secondary">Simpan & Tambah Baru</button>
+      {% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}

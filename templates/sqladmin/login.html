@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PostureFit Admin — Login</title>
+  <meta name="description" content="Masuk ke panel admin PostureFit untuk mengelola data pengguna, latihan, dan analisis postur." />
+  <meta name="robots" content="noindex, nofollow" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/static/css/posturfit-login.css" />
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+
+<div class="login-container">
+
+  <!-- ══════════════════════════════════════════
+       LEFT PANEL — Login Form
+       ══════════════════════════════════════════ -->
+  <div class="login-panel login-panel-left">
+
+    <div class="login-form-wrapper">
+
+      <!-- Brand -->
+      <div class="login-brand">
+        <div class="login-logo-wrap">
+          <img src="/static/Logo_1.png" alt="PostureFit Logo" class="login-logo-img" />
+        </div>
+        <div class="login-brand-text">
+          <h1>Posture<em>Fit</em></h1>
+          <p>Admin Dashboard</p>
+        </div>
+      </div>
+
+      <!-- Heading -->
+      <div class="login-heading">
+        <h2>Selamat Datang</h2>
+        <p>Masukkan kredensial admin Anda untuk mengakses panel kontrol.</p>
+      </div>
+
+      <!-- Error Alert -->
+      {% if error %}
+      <div class="login-error" id="login-error" role="alert" aria-live="assertive">
+        <span class="login-error-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </span>
+        <span class="login-error-text">{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Form -->
+      <form class="login-form" id="login-form" method="POST" action="/admin/login" novalidate>
+
+        <!-- Username -->
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <div class="input-wrap">
+            <input
+              class="form-input"
+              type="text"
+              id="username"
+              name="username"
+              placeholder="Masukkan username"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+              autofocus
+            />
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <div class="input-wrap">
+            <input
+              class="form-input"
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Masukkan password"
+              autocomplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              class="toggle-password"
+              id="toggle-pw"
+              aria-label="Tampilkan/sembunyikan password"
+              title="Tampilkan password"
+            >
+              <svg id="icon-eye-show" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg id="icon-eye-hide" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- reCAPTCHA -->
+        <div class="g-recaptcha" data-sitekey="6LdmwkctAAAAACimD-PH2weJhR5p3IwrOFg_6eja" style="margin-bottom:16px;"></div>
+
+        <!-- Submit -->
+        <button class="btn-login" type="submit" id="btn-submit">
+          <span class="btn-content">
+            <span class="btn-spinner" id="btn-spinner" aria-hidden="true"></span>
+            <span id="btn-text">Masuk ke Dashboard</span>
+          </span>
+        </button>
+
+      </form>
+
+      <!-- Footer -->
+      <div class="login-footer">
+        <div class="footer-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          Sistem online
+        </div>
+        <span class="footer-version">v2.0.0</span>
+      </div>
+
+    </div><!-- /.login-form-wrapper -->
+
+    <!-- Background decorative elements -->
+    <div class="left-bg-shape left-bg-shape-1" aria-hidden="true"></div>
+    <div class="left-bg-shape left-bg-shape-2" aria-hidden="true"></div>
+
+  </div><!-- /.login-panel-left -->
+
+
+  <!-- ══════════════════════════════════════════
+       RIGHT PANEL — Carousel / Hero
+       ══════════════════════════════════════════ -->
+  <div class="login-panel login-panel-right">
+
+    <div class="carousel" id="loginCarousel">
+
+      <!-- Slides -->
+      <div class="carousel-slides">
+
+        <div class="carousel-slide active" data-index="0">
+          <div class="slide-bg slide-bg-1"></div>
+          <div class="slide-overlay"></div>
+          <div class="slide-content">
+            <div class="slide-badge">Analisis Postur</div>
+            <h3 class="slide-title">Pantau Postur<br><em>Secara Real-time</em></h3>
+            <p class="slide-desc">CV Assessment dan rekomendasi latihan yang dipersonalisasi berdasarkan hasil scan postur tubuh.</p>
+          </div>
+        </div>
+
+        <div class="carousel-slide" data-index="1">
+          <div class="slide-bg slide-bg-2"></div>
+          <div class="slide-overlay"></div>
+          <div class="slide-content">
+            <div class="slide-badge">Progress Latihan</div>
+            <h3 class="slide-title">Lacak Setiap<br><em>Kemajuan</em></h3>
+            <p class="slide-desc">Dashboard komprehensif untuk memonitor aktivitas harian, workout log, dan perkembangan BMI pengguna.</p>
+          </div>
+        </div>
+
+        <div class="carousel-slide" data-index="2">
+          <div class="slide-bg slide-bg-3"></div>
+          <div class="slide-overlay"></div>
+          <div class="slide-content">
+            <div class="slide-badge">Konten Edukasi</div>
+            <h3 class="slide-title">Kelola Artikel<br><em>Edukasi Kebugaran</em></h3>
+            <p class="slide-desc">Sinkronisasi dan kelola konten edukasi dari berbagai sumber untuk mendukung program latihan pengguna.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Dots -->
+      <div class="carousel-dots" id="carouselDots">
+        <button class="carousel-dot active" data-slide="0" aria-label="Slide 1"></button>
+        <button class="carousel-dot" data-slide="1" aria-label="Slide 2"></button>
+        <button class="carousel-dot" data-slide="2" aria-label="Slide 3"></button>
+      </div>
+
+      <!-- Prev / Next -->
+      <button class="carousel-btn carousel-prev" id="carouselPrev" aria-label="Sebelumnya">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="carousel-btn carousel-next" id="carouselNext" aria-label="Selanjutnya">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+      </button>
+
+      <!-- Bottom gradient overlay -->
+      <div class="carousel-bottom-fade" aria-hidden="true"></div>
+
+    </div>
+
+    <!-- Sistem badge -->
+    <div class="panel-badge" aria-hidden="true">
+      <span class="panel-badge-dot"></span>
+      Dashboard Admin
+    </div>
+
+  </div><!-- /.login-panel-right -->
+
+</div><!-- /.login-container -->
+
+
+<script>
+(function () {
+  'use strict';
+
+  /* ═══════════════════════════════════════════════
+     CAROUSEL
+     ═══════════════════════════════════════════════ */
+  (function () {
+    var slides = document.querySelectorAll('.carousel-slide');
+    var dots   = document.querySelectorAll('.carousel-dot');
+    var prev   = document.getElementById('carouselPrev');
+    var next   = document.getElementById('carouselNext');
+    if (!slides.length) return;
+
+    var current  = 0;
+    var interval = null;
+    var DELAY    = 5000;
+
+    function goTo(index) {
+      if (index === current) return;
+      slides.forEach(function (s) { s.classList.remove('active'); });
+      dots.forEach(function (d)   { d.classList.remove('active'); });
+      slides[index].classList.add('active');
+      dots[index].classList.add('active');
+      current = index;
+    }
+
+    function nextSlide() { goTo((current + 1) % slides.length); }
+    function prevSlide() { goTo((current - 1 + slides.length) % slides.length); }
+
+    function startAuto() {
+      if (interval) clearInterval(interval);
+      interval = setInterval(nextSlide, DELAY);
+    }
+
+    function resetAuto() { clearInterval(interval); startAuto(); }
+
+    // Dots
+    dots.forEach(function (dot) {
+      dot.addEventListener('click', function () {
+        var idx = parseInt(this.getAttribute('data-slide'), 10);
+        if (idx !== current) { goTo(idx); resetAuto(); }
+      });
+    });
+
+    // Prev/Next
+    if (prev) prev.addEventListener('click', function () { prevSlide(); resetAuto(); });
+    if (next) next.addEventListener('click', function () { nextSlide(); resetAuto(); });
+
+    startAuto();
+  })();
+
+  /* ═══════════════════════════════════════════════
+     TOGGLE PASSWORD
+     ═══════════════════════════════════════════════ */
+  var pwInput   = document.getElementById('password');
+  var toggleBtn = document.getElementById('toggle-pw');
+  var visible   = false;
+
+  if (toggleBtn && pwInput) {
+    var iconShow = document.getElementById('icon-eye-show');
+    var iconHide = document.getElementById('icon-eye-hide');
+    toggleBtn.addEventListener('click', function () {
+      visible      = !visible;
+      pwInput.type = visible ? 'text' : 'password';
+      if (iconShow) iconShow.style.display = visible ? 'none'  : '';
+      if (iconHide) iconHide.style.display = visible ? ''      : 'none';
+      toggleBtn.title = visible ? 'Sembunyikan password' : 'Tampilkan password';
+      toggleBtn.setAttribute('aria-label', toggleBtn.title);
+    });
+  }
+
+  /* ═══════════════════════════════════════════════
+     FORM SUBMIT LOADING
+     ═══════════════════════════════════════════════ */
+  var form      = document.getElementById('login-form');
+  var spinner   = document.getElementById('btn-spinner');
+  var btnText   = document.getElementById('btn-text');
+  var btnSubmit = document.getElementById('btn-submit');
+
+  if (form) {
+    form.addEventListener('submit', function () {
+      var user = document.getElementById('username').value.trim();
+      var pass = pwInput ? pwInput.value : '';
+      if (!user || !pass) return;
+
+      if (spinner) spinner.style.display = 'block';
+      if (btnText) btnText.textContent   = 'Memproses…';
+      if (btnSubmit) btnSubmit.disabled  = true;
+    });
+  }
+
+  /* ═══════════════════════════════════════════════
+     AUTO-DISMISS ERROR AFTER 6s
+     ═══════════════════════════════════════════════ */
+  var errEl = document.getElementById('login-error');
+  if (errEl) {
+    setTimeout(function () {
+      errEl.style.transition = 'opacity 0.5s ease';
+      errEl.style.opacity    = '0';
+      setTimeout(function () {
+        errEl.style.display = 'none';
+      }, 500);
+    }, 6000);
+  }
+
+})();
+</script>
+
+</body>
+</html>

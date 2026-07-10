@@ -1,0 +1,405 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — WELCOME CARD
+     ══════════════════════════════════════════════════════════════ -->
+<div class="da-welcome">
+  <div>
+    <h2>Selamat Datang, {{ request.session.get('admin_username', 'Admin')|capitalize }}</h2>
+    <p>Semoga aktivitas hari ini berjalan lancar.</p>
+  </div>
+  <div class="da-welcome-right">
+    <div class="da-badge da-badge-green">
+      <span class="da-badge-dot"></span>
+      Sistem Online
+    </div>
+    <div class="da-welcome-date" id="daClock">Memuat waktu...</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — STATISTIK
+     ══════════════════════════════════════════════════════════════ -->
+<div class="da-section-label">Statistik</div>
+
+<div class="da-stats-grid">
+
+  <div class="da-stat-card">
+    <div class="da-stat-icon green">👥</div>
+    <div class="da-stat-body">
+      <div class="da-stat-value" id="v-users">—</div>
+      <div class="da-stat-label">Total Pengguna</div>
+      <div class="da-stat-sub">Akun terdaftar</div>
+    </div>
+  </div>
+
+  <div class="da-stat-card">
+    <div class="da-stat-icon blue">📸</div>
+    <div class="da-stat-body">
+      <div class="da-stat-value" id="v-scans">—</div>
+      <div class="da-stat-label">Total Scan CV</div>
+      <div class="da-stat-sub">Analisis postur</div>
+    </div>
+  </div>
+
+  <div class="da-stat-card">
+    <div class="da-stat-icon orange">📋</div>
+    <div class="da-stat-body">
+      <div class="da-stat-value" id="v-plans">—</div>
+      <div class="da-stat-label">Rencana Latihan</div>
+      <div class="da-stat-sub">Program dibuat</div>
+    </div>
+  </div>
+
+  <div class="da-stat-card">
+    <div class="da-stat-icon green">🏃</div>
+    <div class="da-stat-body">
+      <div class="da-stat-value" id="v-logs">—</div>
+      <div class="da-stat-label">Riwayat Workout</div>
+      <div class="da-stat-sub">Sesi latihan</div>
+    </div>
+  </div>
+
+  <div class="da-stat-card">
+    <div class="da-stat-icon blue">📚</div>
+    <div class="da-stat-body">
+      <div class="da-stat-value" id="v-articles">—</div>
+      <div class="da-stat-label">Artikel Edukasi</div>
+      <div class="da-stat-sub">Konten tersedia</div>
+    </div>
+  </div>
+
+  <div class="da-stat-card">
+    <div class="da-stat-icon yellow">🔔</div>
+    <div class="da-stat-body">
+      <div class="da-stat-value" id="v-notifs">—</div>
+      <div class="da-stat-label">Notifikasi Aktif</div>
+      <div class="da-stat-sub">Pesan terkirim</div>
+    </div>
+  </div>
+
+  <div class="da-stat-card">
+    <div class="da-stat-icon orange">⚖️</div>
+    <div class="da-stat-body">
+      <div class="da-stat-value" id="v-bmi">—</div>
+      <div class="da-stat-label">Rata-rata BMI</div>
+      <div class="da-stat-sub">Seluruh pengguna</div>
+    </div>
+  </div>
+
+  <div class="da-stat-card">
+    <div class="da-stat-icon purple">📊</div>
+    <div class="da-stat-body">
+      <div class="da-stat-value" id="v-login-today">—</div>
+      <div class="da-stat-label">Login Hari Ini</div>
+      <div class="da-stat-sub">Total: <span id="v-login-7days">—</span> (7 hari)</div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — GRAFIK
+     ══════════════════════════════════════════════════════════════ -->
+<div class="da-section-label">Visualisasi Data</div>
+
+<div class="da-charts-grid">
+
+  <div class="da-chart-card">
+    <div class="da-chart-title">
+      Distribusi Kategori Tubuh
+      <span class="da-chart-tag">Donut</span>
+    </div>
+    <div class="da-chart-wrap">
+      <canvas id="catChart" aria-label="Grafik distribusi kategori tubuh" role="img"></canvas>
+      <div class="pf-empty" id="catEmpty" style="display:none;" aria-live="polite">
+        <div class="pf-empty-ico">📊</div>
+        <p>Belum ada data scan</p>
+      </div>
+    </div>
+    <div class="da-chart-legend" id="catLegend" aria-label="Legenda grafik kategori tubuh"></div>
+  </div>
+
+  <div class="da-chart-card">
+    <div class="da-chart-title">
+      Pendaftar 7 Hari Terakhir
+      <span class="da-chart-tag">Bar</span>
+    </div>
+    <div class="da-chart-wrap">
+      <canvas id="regChart" aria-label="Grafik pendaftar 7 hari terakhir" role="img"></canvas>
+      <div class="pf-empty" id="regEmpty" style="display:none;" aria-live="polite">
+        <div class="pf-empty-ico">📈</div>
+        <p>Belum ada pendaftar baru</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="da-chart-card">
+    <div class="da-chart-title">
+      Metode Registrasi
+      <span class="da-chart-tag">Pie</span>
+    </div>
+    <div class="da-chart-wrap">
+      <canvas id="provChart" aria-label="Grafik metode registrasi" role="img"></canvas>
+      <div class="pf-empty" id="provEmpty" style="display:none;" aria-live="polite">
+        <div class="pf-empty-ico">🔑</div>
+        <p>Belum ada pengguna</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — AKTIVITAS TERBARU (Empty State)
+     ══════════════════════════════════════════════════════════════ -->
+<div class="da-section-label">Aktivitas Terbaru</div>
+
+<div class="da-empty">
+  <div class="da-empty-icon">📋</div>
+  <h4>Belum ada aktivitas terbaru</h4>
+  <p>Data aktivitas pengguna akan muncul setelah mereka mulai menggunakan aplikasi PostureFit.</p>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5 — AKSI CEPAT
+     ══════════════════════════════════════════════════════════════ -->
+<div class="da-section-label">Aksi Cepat</div>
+
+<div class="da-actions-grid">
+  <a href="/admin/user/list" class="da-action-btn">👥 Tambah Pengguna</a>
+  <a href="/admin/education-article/list" class="da-action-btn">📚 Tambah Artikel</a>
+  <a href="/admin/daily-workout-plan/list" class="da-action-btn">🏋️ Program Latihan</a>
+  <a href="/admin/notification/list" class="da-action-btn">🔔 Kirim Notifikasi</a>
+</div>
+
+
+
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     TOAST
+     ══════════════════════════════════════════════════════════════ -->
+<div class="da-toast" id="pf-toast" style="display:none;" role="alert">
+  ⚠️ Gagal memuat data statistik.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     JAVASCRIPT — Chart.js + Stats + Broadcast
+     ══════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ── Clock widget ─────────────────────────────────────────── */
+  var clockEl = document.getElementById('daClock');
+  if (clockEl) {
+    function updateClock() {
+      var now = new Date();
+      var opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      clockEl.textContent = now.toLocaleDateString('id-ID', opts);
+    }
+    updateClock();
+    setInterval(updateClock, 30000);
+  }
+
+  /* ── Chart colors & defaults ────────────────────────────────── */
+  var COLORS = ['#10b981','#1d6fe8','#f97316','#eab308','#ec4899','#06b6d4','#4d94f0'];
+
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color       = '#94a3b8';
+
+  var charts = {};
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function animateCount(el, target, isFloat) {
+    if (!el) return;
+    var start = performance.now();
+    var dur   = 950;
+    function tick(now) {
+      var progress = Math.min((now - start) / dur, 1);
+      var value    = target * easeOut(progress);
+      el.textContent = isFloat
+        ? value.toFixed(1)
+        : Math.round(value).toLocaleString('id-ID');
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function showToast(msg) {
+    var toast = document.getElementById('pf-toast');
+    if (!toast) return;
+    toast.style.display = 'flex';
+    if (msg) toast.textContent = '⚠️ ' + msg;
+    setTimeout(function () {
+      toast.style.opacity = '0';
+      setTimeout(function () { toast.style.display = 'none'; toast.style.opacity = ''; }, 350);
+    }, 4500);
+  }
+
+  function buildDonut(labels, values) {
+    var canvas = document.getElementById('catChart');
+    var empty  = document.getElementById('catEmpty');
+    var legend = document.getElementById('catLegend');
+    if (!values.length) {
+      canvas.style.display = 'none';
+      if (legend) legend.innerHTML = '';
+      empty.style.display = 'flex';
+      return;
+    }
+    canvas.style.display = '';
+    empty.style.display = 'none';
+    if (legend) {
+      legend.innerHTML = '';
+      labels.forEach(function (label, i) {
+        var item = document.createElement('span');
+        item.className = 'da-legend-item';
+        item.innerHTML = '<span class="da-legend-dot" style="background:' + COLORS[i % COLORS.length] + '"></span>' + label;
+        legend.appendChild(item);
+      });
+    }
+    if (charts.donut) { charts.donut.destroy(); }
+    charts.donut = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{ data: values, backgroundColor: COLORS.slice(0, values.length), borderWidth: 0, hoverOffset: 12 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '72%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a', cornerRadius: 12, padding: 12,
+            callbacks: { label: function (ctx) { return '  ' + ctx.label + ': ' + ctx.parsed + ' orang'; } },
+          },
+        },
+        animation: { animateRotate: true, duration: 1100 },
+      },
+    });
+  }
+
+  function buildBar(labels, values) {
+    var canvas = document.getElementById('regChart');
+    var empty  = document.getElementById('regEmpty');
+    if (!values.length) {
+      canvas.style.display = 'none';
+      empty.style.display = 'flex';
+      return;
+    }
+    canvas.style.display = '';
+    empty.style.display = 'none';
+    var maxVal = Math.max.apply(null, values);
+    if (charts.bar) { charts.bar.destroy(); }
+    charts.bar = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Pendaftar', data: values,
+          backgroundColor: values.map(function (v) { return v === maxVal ? 'rgba(16,185,129,.9)' : 'rgba(16,185,129,.15)'; }),
+          borderRadius: 10, borderSkipped: false, barPercentage: .55,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a', cornerRadius: 12, padding: 12,
+            callbacks: { label: function (ctx) { return '  ' + ctx.parsed.y + ' pendaftar'; } },
+          },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(15,23,42,.06)' }, border: { display: false }, ticks: { stepSize: 1, font: { size: 11 }, callback: function (v) { return Number.isInteger(v) ? v : ''; } } },
+        },
+        animation: { duration: 950 },
+      },
+    });
+  }
+
+  function buildProviderPie(providerMap) {
+    var canvas = document.getElementById('provChart');
+    var empty  = document.getElementById('provEmpty');
+    var labels = Object.keys(providerMap || {});
+    var values = Object.values(providerMap || {});
+    var total  = values.reduce(function (a, b) { return a + b; }, 0);
+    if (!total) {
+      canvas.style.display = 'none';
+      empty.style.display = 'flex';
+      return;
+    }
+    canvas.style.display = '';
+    empty.style.display = 'none';
+    if (charts.prov) { charts.prov.destroy(); }
+    var provColors = ['#10b981', '#3b82f6', '#94a3b8'];
+    charts.prov = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: labels.map(function (l) { return l === 'google' ? 'Google' : l === 'email' ? 'Email' : 'Belum Login'; }),
+        datasets: [{
+          data: values,
+          backgroundColor: provColors,
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle', font: { size: 12, weight: '600' } },
+          },
+          tooltip: {
+            backgroundColor: '#0f172a', cornerRadius: 12, padding: 12,
+            callbacks: { label: function (ctx) {
+              var pct = ((ctx.parsed / total) * 100).toFixed(1);
+              return '  ' + ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+            } },
+          },
+        },
+        animation: { animateRotate: true, duration: 1100 },
+      },
+    });
+  }
+
+  function render(data) {
+    animateCount(document.getElementById('v-users'),    data.total_users         || 0, false);
+    animateCount(document.getElementById('v-bmi'),      data.avg_bmi             || 0, true);
+    animateCount(document.getElementById('v-scans'),    data.total_scans         || 0, false);
+    animateCount(document.getElementById('v-plans'),    data.total_plans         || 0, false);
+    animateCount(document.getElementById('v-logs'),     data.total_workout_logs  || 0, false);
+    animateCount(document.getElementById('v-articles'), data.total_articles      || 0, false);
+    animateCount(document.getElementById('v-notifs'),   data.total_notifications || 0, false);
+    animateCount(document.getElementById('v-login-today'), data.login_today  || 0, false);
+    var el7 = document.getElementById('v-login-7days');
+    if (el7) el7.textContent = (data.login_7days || 0).toLocaleString('id-ID');
+    buildDonut(Object.keys(data.kategori_tubuh || {}), Object.values(data.kategori_tubuh || {}));
+    buildBar(Object.keys(data.registrations || {}), Object.values(data.registrations || {}));
+    buildProviderPie(data.users_by_provider || {});
+  }
+
+  fetch('/admin-api/stats')
+    .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+    .then(render)
+    .catch(function (err) {
+      console.error('[PostureFit Admin] Failed to load stats:', err);
+      showToast('Gagal memuat data statistik. Coba refresh halaman.');
+    });
+})();
+
+
+</script>
+
+{% endblock %}

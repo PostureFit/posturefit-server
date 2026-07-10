@@ -1,0 +1,257 @@
+{% extends "sqladmin/layout.html" %}
+{% block content %}
+<style>
+  .da-content-inner {
+    max-width: 100% !important;
+  }
+</style>
+<div class="d-flex" style="gap:16px;">
+
+  <!-- Main table -->
+  <div class="flex-grow-1" style="min-width:0;">
+
+    <div class="da-list-card">
+
+            <!-- Header -->
+            <div class="da-list-header">
+              <h3 class="da-list-title">{{ model_view.name_plural }}</h3>
+              <div class="da-list-actions">
+                {% block model_menu_bar %}
+                {% if model_view.can_export %}
+                {% if model_view.export_types | length > 1 %}
+                <div class="dropdown">
+                  <button class="da-btn da-btn-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                    Export
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <ul class="dropdown-menu" style="min-width:120px;padding:6px;border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-hover);">
+                    {% for export_type in model_view.export_types %}
+                    <li><a class="da-dropdown-item" href="{{ url_for('admin:export', identity=model_view.identity, export_type=export_type) }}">{{ export_type | upper }}</a></li>
+                    {% endfor %}
+                  </ul>
+                </div>
+                {% elif model_view.export_types | length == 1 %}
+                <a href="{{ url_for('admin:export', identity=model_view.identity, export_type=model_view.export_types[0]) }}" class="da-btn da-btn-secondary">
+                  Export
+                </a>
+                {% endif %}
+                {% endif %}
+                {% if model_view.can_create %}
+                <a href="{{ url_for('admin:create', identity=model_view.identity) }}" class="da-btn da-btn-primary">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Tambah {{ model_view.name }}
+                </a>
+                {% endif %}
+                {% endblock %}
+              </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="da-list-toolbar">
+              <div class="da-list-toolbar-left">
+                <div class="dropdown">
+                  <button {% if not model_view.can_delete and not model_view._custom_actions_in_list %} disabled {% endif %} class="da-btn da-btn-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                    Actions
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  {% if model_view.can_delete or model_view._custom_actions_in_list %}
+                  <div class="dropdown-menu" style="min-width:220px;padding:6px;border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-hover);">
+                    {% if model_view.can_delete %}
+                    <a class="da-dropdown-item" id="action-delete" href="#" data-name="{{ model_view.name }}" data-url="{{ url_for('admin:delete', identity=model_view.identity) }}" data-bs-toggle="modal" data-bs-target="#modal-delete">Delete selected items</a>
+                    {% endif %}
+                    {% for custom_action, label in model_view._custom_actions_in_list.items() %}
+                    {% if custom_action in model_view._custom_actions_confirmation %}
+                    <a class="da-dropdown-item" id="action-customconfirm-{{ custom_action }}" href="#" data-bs-toggle="modal" data-bs-target="#modal-confirmation-{{ custom_action }}">{{ label }}</a>
+                    {% else %}
+                    <a class="da-dropdown-item" id="action-custom-{{ custom_action }}" href="#" data-url="{{ model_view._url_for_action(request, custom_action) }}">{{ label }}</a>
+                    {% endif %}
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              {% if model_view.column_searchable_list %}
+              <div class="da-search-wrap">
+                <input id="search-input" type="text" class="da-search-input"
+                  data-search-auto-submit="{{ 'true' if model_view.search_auto_submit else 'false' }}"
+                  placeholder="Cari: {{ model_view.search_placeholder() }}"
+                  value="{{ request.query_params.get('search', '') }}">
+                <button id="search-button" class="da-search-btn" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>
+                <button id="search-reset" class="da-search-reset" type="button" {% if not request.query_params.get('search') %}disabled{% endif %}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              {% endif %}
+            </div>
+
+            {% if error %}
+            <div style="padding:0 24px;margin-top:12px;">
+              <div class="da-alert da-alert-danger">{{ error }}</div>
+            </div>
+            {% endif %}
+
+            <!-- Table -->
+            {% block model_list_table %}
+            <div class="da-table-wrap">
+              <table class="da-table">
+                <thead>
+                  <tr>
+                    <th class="da-check-cell"><input class="da-checkbox" type="checkbox" aria-label="Select all" id="select-all"></th>
+                    <th class="da-action-cell"></th>
+                    {% for name in model_view._list_prop_names %}
+                    {% set label = model_view._column_labels.get(name, name) %}
+                    <th>
+                      {% if name in model_view._sort_fields %}
+                      {% if request.query_params.get("sortBy") == name and request.query_params.get("sort") == "asc" %}
+                      <a href="{{ request.url.include_query_params(sort='desc') }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                        {{ label }}
+                      </a>
+                      {% elif request.query_params.get("sortBy") == name and request.query_params.get("sort") == "desc" %}
+                      <a href="{{ request.url.include_query_params(sort='asc') }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        {{ label }}
+                      </a>
+                      {% else %}
+                      <a href="{{ request.url.include_query_params(sortBy=name, sort='asc') }}">{{ label }}</a>
+                      {% endif %}
+                      {% else %}
+                      {{ label }}
+                      {% endif %}
+                    </th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in pagination.rows %}
+                  <tr>
+                    <td class="da-check-cell">
+                      <input type="hidden" value="{{ get_object_identifier(row) }}">
+                      <input class="da-checkbox select-box" type="checkbox" aria-label="Select item">
+                    </td>
+                    <td class="da-action-cell">
+                      {% if model_view.check_can_view_details(request, row) %}
+                      <a href="{{ model_view._build_url_for('admin:details', request, row) }}" class="da-action-btn-sm" data-bs-toggle="tooltip" data-bs-placement="top" title="Detail">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </a>
+                      {% endif %}
+                      {% if model_view.check_can_edit(request, row) %}
+                      <a href="{{ model_view._build_url_for('admin:edit', request, row) }}" class="da-action-btn-sm" data-bs-toggle="tooltip" data-bs-placement="top" title="Edit">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </a>
+                      {% endif %}
+                      {% if model_view.check_can_delete(request, row) %}
+                      <a href="#" data-name="{{ model_view.name }}" data-pk="{{ get_object_identifier(row) }}" data-url="{{ model_view._url_for_delete(request, row) }}" data-bs-toggle="modal" data-bs-target="#modal-delete" class="da-action-btn-sm danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Hapus">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </a>
+                      {% endif %}
+                    </td>
+                    {% for name in model_view._list_prop_names %}
+                    {% set value, formatted_value = model_view.get_list_value(row, name) %}
+                    {% if name in model_view._relation_names %}
+                    {% if is_list(value) %}
+                    <td>
+                      {% for elem, formatted_elem in zip(value, formatted_value) %}
+                      {% if model_view.show_compact_lists %}
+                      <a href="{{ model_view._build_url_for('admin:details', request, elem) }}">({{ formatted_elem }})</a>
+                      {% else %}
+                      <a href="{{ model_view._build_url_for('admin:details', request, elem) }}">{{ formatted_elem }}</a><br>
+                      {% endif %}
+                      {% endfor %}
+                    </td>
+                    {% else %}
+                    <td><a href="{{ model_view._url_for_details_with_prop(request, row, name) }}" style="color:var(--blue);text-decoration:none;font-weight:500;">{{ formatted_value }}</a></td>
+                    {% endif %}
+                    {% else %}
+                    <td>{{ formatted_value }}</td>
+                    {% endif %}
+                    {% endfor %}
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endblock %}
+
+            <!-- Pagination -->
+            <div class="da-pagination">
+              <p class="da-pagination-info">
+                Menampilkan <strong>{{ ((pagination.page - 1) * pagination.page_size) + 1 }}</strong>
+                sampai <strong>{{ min(pagination.page * pagination.page_size, pagination.count) }}</strong>
+                dari <strong>{{ pagination.count }}</strong> data
+              </p>
+
+              <ul class="da-pagination-links">
+                <li class="da-page-item {% if not pagination.has_previous %}disabled{% endif %}">
+                  {% if pagination.has_previous %}
+                  <a class="da-page-link" href="{{ pagination.previous_page.url }}">
+                  {% else %}
+                  <a class="da-page-link" href="#">
+                  {% endif %}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  </a>
+                </li>
+                {% for page_control in pagination.page_controls %}
+                <li class="da-page-item {% if page_control.number == pagination.page %}active{% endif %}">
+                  <a class="da-page-link" href="{{ page_control.url }}">{{ page_control.number }}</a>
+                </li>
+                {% endfor %}
+                <li class="da-page-item {% if not pagination.has_next %}disabled{% endif %}">
+                  {% if pagination.has_next %}
+                  <a class="da-page-link" href="{{ pagination.next_page.url }}">
+                  {% else %}
+                  <a class="da-page-link" href="#">
+                  {% endif %}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                  </a>
+                </li>
+              </ul>
+
+              <div class="da-page-size">
+                <span>Tampil</span>
+                <select class="da-page-size-select" onchange="window.location.href=this.value;">
+                  {% for page_size_option in model_view.page_size_options %}
+                  <option value="{{ request.url.include_query_params(pageSize=page_size_option, page=pagination.resize(page_size_option).page) }}" {% if page_size_option == (request.query_params.get('pageSize')|int or model_view.page_size) %}selected{% endif %}>
+                    {{ page_size_option }} / Halaman
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+          </div><!-- /.da-list-card -->
+        </div>
+
+        <!-- Filter Sidebar -->
+        {% if model_view.get_filters() %}
+        <div class="da-filter-sidebar">
+          <div class="da-filter-card">
+            <div class="da-filter-header">Filter</div>
+            <div class="da-filter-body">
+              {% for filter in model_view.get_filters() %}
+              {% include filter.template %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+
+  <!-- Modals -->
+  {% if model_view.can_delete %}
+  {% include 'sqladmin/modals/delete.html' %}
+  {% endif %}
+
+  {% for custom_action in model_view._custom_actions_in_list %}
+  {% if custom_action in model_view._custom_actions_confirmation %}
+  {% with confirmation_message = model_view._custom_actions_confirmation[custom_action], custom_action=custom_action, url=model_view._url_for_action(request, custom_action) %}
+  {% include 'sqladmin/modals/list_action_confirmation.html' %}
+  {% endwith %}
+  {% endif %}
+  {% endfor %}
+
+{% endblock %}

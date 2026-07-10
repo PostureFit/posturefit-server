@@ -27,6 +27,7 @@ from llm_service import generate_recommendation as llm_recommendation
 router = APIRouter(prefix="/api/assessment", tags=["Vitality Assessment"])
 
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 
@@ -39,10 +40,16 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
     status_code=status.HTTP_200_OK,
 )
 async def analyze_image(file: UploadFile = File(...)):
-    if file.content_type not in ALLOWED_MIME_TYPES:
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if file.content_type and file.content_type not in ALLOWED_MIME_TYPES and ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail=f"Tipe file {file.content_type} tidak didukung. Gunakan JPG, PNG, atau WebP.",
+        )
+    if not file.content_type and ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ekstensi file {ext} tidak didukung. Gunakan JPG, PNG, atau WebP.",
         )
 
     contents = await file.read()

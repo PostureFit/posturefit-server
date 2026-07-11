@@ -1178,7 +1178,8 @@ button { font-family: inherit; }
   font-family: inherit;
   background: transparent;
   color: var(--text-body);
-  min-width: 200px;
+  min-width: 160px;
+  max-width: 100%;
 }
 
 .da-search-input::placeholder {
@@ -1920,10 +1921,22 @@ button { font-family: inherit; }
 /* Mobile: search becomes icon */
 @media (max-width: 768px) {
   .da-search-global {
-    width: auto;
+    /* Collapse wrapper — icon button is separate in HTML */
+    width: 0;
+    min-width: 0;
+    overflow: visible;
+    flex-shrink: 1;
+  }
+
+  .da-search-global-icon {
+    display: none;
   }
 
   .da-search-global-input {
+    display: none;
+  }
+
+  .da-search-global-hint {
     display: none;
   }
 
@@ -1938,13 +1951,17 @@ button { font-family: inherit; }
     padding: 18px 14px 18px 44px;
     font-size: 15px;
     background: var(--surface);
+    color: var(--text-body);
+    height: 56px;
   }
 
   .da-search-global.mobile-open .da-search-global-icon {
+    display: flex;
     position: fixed;
     top: 18px;
     left: 14px;
     z-index: 501;
+    transform: none;
   }
 
   .da-search-global.mobile-open .da-search-global-hint {
@@ -1960,10 +1977,28 @@ button { font-family: inherit; }
     border-left: none;
     border-right: none;
     max-height: calc(100vh - 56px);
+    z-index: 499;
   }
 
   .da-search-icon-btn {
-    display: flex;
+    display: flex !important;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-muted);
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .da-search-icon-btn:active {
+    background: var(--surface);
+    color: var(--blue);
   }
 }
 
@@ -3030,7 +3065,23 @@ html[data-bs-theme="dark"] .page-pretitle {
   }
 
   .da-header {
-    padding: 0 16px;
+    padding: 0 12px;
+    gap: 8px;
+    height: 56px;
+    --header-h: 56px;
+  }
+
+  .da-header-title {
+    font-size: 15px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .da-header-spacer {
+    flex: 1;
+    min-width: 0;
   }
 
   .da-header-user-info {
@@ -3041,11 +3092,24 @@ html[data-bs-theme="dark"] .page-pretitle {
     display: none;
   }
 
+  /* Theme toggle — bigger tap target on mobile */
+  .da-theme-toggle {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
   .da-welcome {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
-    padding: 24px;
+    padding: 20px 18px;
+  }
+
+  .da-welcome h2 {
+    font-size: 20px;
   }
 
   .da-welcome-right {
@@ -3055,16 +3119,32 @@ html[data-bs-theme="dark"] .page-pretitle {
 
   .da-stats-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 10px;
   }
 
   .da-stat-card {
-    padding: 16px;
+    padding: 14px 12px;
     min-height: 80px;
+    gap: 10px;
+  }
+
+  .da-stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    flex-shrink: 0;
   }
 
   .da-stat-value {
-    font-size: 22px;
+    font-size: 20px;
+  }
+
+  .da-stat-label {
+    font-size: 12px;
+  }
+
+  .da-stat-sub {
+    font-size: 11px;
   }
 
   .da-actions-grid {
@@ -3073,7 +3153,7 @@ html[data-bs-theme="dark"] .page-pretitle {
   }
 
   .da-action-btn {
-    padding: 12px 14px;
+    padding: 12px 10px;
     font-size: 12px;
   }
 
@@ -3084,14 +3164,179 @@ html[data-bs-theme="dark"] .page-pretitle {
   .da-broadcast-header {
     padding: 14px 16px;
   }
+
+  .da-section-label {
+    margin-top: 24px;
+  }
+
+  .da-chart-card {
+    padding: 16px;
+  }
+
+  /* pf-row2 grid fix on mobile */
+  .pf-row2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
+  .da-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .da-actions-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .da-header-title {
+    max-width: 90px;
+  }
+
+  /* List page — toolbar stacks vertically */
+  .da-list-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .da-search-wrap {
+    width: 100%;
+  }
+
+  .da-search-input {
+    min-width: 0;
+    flex: 1;
+    width: 100%;
+  }
+
+  /* Filter sidebar goes full-width below table on mobile */
+  .da-filter-sidebar {
+    width: 100%;
+  }
+
+  /* Table cell padding tighter */
+  .da-table th,
+  .da-table td {
+    padding: 10px 10px;
+    font-size: 12px;
+  }
+
+  /* Detail table — stack columns */
+  .da-detail-table td:first-child {
+    width: auto;
+    min-width: 90px;
+    max-width: 130px;
+  }
+
+  .da-detail-table td {
+    padding: 10px 16px;
+  }
+
+  /* Form body tighter */
+  .da-form-body {
+    padding: 16px;
+  }
+
+  .da-form-footer {
+    padding: 14px 16px;
+  }
+
+  /* Pagination — hide info text, keep controls */
+  .da-pagination {
+    padding: 12px 16px;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .da-pagination-info {
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* List header actions wrap */
+  .da-list-header {
+    padding: 14px 16px;
+    gap: 8px;
+  }
+
+  .da-list-title {
+    font-size: 14px;
+  }
+
+  /* Toast — full width on mobile */
+  .da-toast,
+  .pf-toast {
+    left: 12px;
+    right: 12px;
+    bottom: 16px;
+    max-width: none;
+  }
+}
+
+@media (max-width: 360px) {
   .da-stats-grid {
     grid-template-columns: 1fr;
   }
 
   .da-actions-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── List toolbar responsive (768px) ───────── */
+@media (max-width: 768px) {
+  .da-list-toolbar {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  .da-list-toolbar-left {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Table horizontal scroll wrapper already handles overflow */
+  .da-table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Filter sidebar collapses below main content */
+  .da-filter-sidebar {
+    width: 100%;
+    position: static;
+  }
+
+  .da-filter-card {
+    position: static;
+    top: auto;
+  }
+
+  /* Detail and form card full width */
+  .da-detail-card,
+  .da-form-card {
+    max-width: 100%;
+  }
+
+  /* Form body padding smaller */
+  .da-form-body {
+    padding: 20px 16px;
+    gap: 16px;
+  }
+
+  .da-form-footer {
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+
+  .da-form-footer .da-btn {
+    min-width: 80px;
+  }
+
+  /* d-flex layout in list page */
+  .da-content-inner > .d-flex {
+    flex-direction: column !important;
   }
 }

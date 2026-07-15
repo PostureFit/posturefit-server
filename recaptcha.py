@@ -6,6 +6,10 @@ RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify"
 
 
 async def verify_recaptcha(captcha_token: str) -> bool:
+    # Flutter mobile tidak menggunakan CAPTCHA, skip verifikasi jika token kosong
+    if not captcha_token or not captcha_token.strip():
+        return True
+
     secret_key = os.getenv("RECAPTCHA_SECRET_KEY", "")
 
     if not secret_key:

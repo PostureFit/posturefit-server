@@ -1,9 +1,12 @@
 import os
+import logging
 from typing import Optional
 
 import firebase_admin
 from firebase_admin import credentials, messaging
 from dotenv import load_dotenv
+
+logger = logging.getLogger("posturfit")
 
 load_dotenv()
 
@@ -33,7 +36,7 @@ def send_push_notification(
     try:
         app = _get_app()
         if app is None:
-            print("[FCM] Service account not configured, skipping push.")
+            logger.warning("Service account not configured, skipping push.")
             return False
 
         message = messaging.Message(
@@ -42,13 +45,13 @@ def send_push_notification(
             token=token,
         )
         response = messaging.send(message, app=app)
-        print(f"[FCM] Sent to {token[:20]}...: {response}")
+        logger.info("Sent to %s...: %s", token[:20], response)
         return True
     except messaging.UnregisteredError:
-        print(f"[FCM] Token {token[:20]}... is no longer registered.")
+        logger.warning("Token %s... is no longer registered.", token[:20])
         return False
     except Exception as e:
-        print(f"[FCM] Error sending to {token[:20]}...: {e}")
+        logger.error("Error sending to %s...: %s", token[:20], e)
         return False
 
 

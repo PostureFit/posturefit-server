@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 
 # pyrefly: ignore [missing-import]
@@ -7,10 +8,14 @@ import shutil
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger("posturfit")
+
 from database import get_db
 from models import User, OtpRequest, PasswordResetOtp, FcmToken, LoginLog
 from auth import hash_password, verify_password, create_access_token, get_current_user
-from otp_service import generate_otp, send_otp_email, OTP_EXPIRE_MINUTES, send_html_email
+from otp_service import generate_otp, hash_otp, send_otp_email, OTP_EXPIRE_MINUTES, send_html_email
+from rate_limit import limiter
+from recaptcha import verify_recaptcha
 from schemas import (
     ApiResponse, UserOut, ProfileUpdateRequest,
     LoginRequest, GoogleLoginRequest, RegisterRequest, Token,
@@ -25,7 +30,9 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 # POST /api/auth/send-otp — Langkah 1 Register: Kirim kode OTP ke email
 # ---------------------------------------------------------------------------
 @router.post("/send-otp", response_model=ApiResponse, status_code=status.HTTP_200_OK)
-async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/10minutes")
+async def send_otp(request: Request, payload: SendOtpRequest, db: Session = Depends(get_db)):
+    await verify_recaptcha(payload.captcha_token)
     # Cek apakah email sudah terdaftar sebagai akun aktif
     existing_user = db.query(User).filter(User.email == payload.email).first()
     if existing_user:
@@ -49,7 +56,7 @@ async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
         email=payload.email,
         name=payload.name,
         password_hash=hash_password(payload.password),
-        otp_code=otp_code,
+        otp_code=hash_otp(otp_code),
         is_used=False,
         expires_at=expires_at,
     )
@@ -80,7 +87,8 @@ async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
 # POST /api/auth/verify-otp — Langkah 2 Register: Verifikasi OTP & buat akun
 # ---------------------------------------------------------------------------
 @router.post("/verify-otp", response_model=Token, status_code=status.HTTP_201_CREATED)
-def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/10minutes")
+def verify_otp(request: Request, payload: VerifyOtpRequest, db: Session = Depends(get_db)):
     """
     Langkah 2 registrasi: Verifikasi kode OTP.
     Jika valid → akun User dibuat → JWT token dikembalikan (langsung login).
@@ -107,7 +115,7 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
             detail="Kode OTP sudah kadaluarsa. Silakan minta ulang.",
         )
 
-    if otp_record.otp_code != payload.otp_code.strip():
+    if otp_record.otp_code != hash_otp(payload.otp_code.strip()):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kode OTP tidak valid.",
@@ -144,7 +152,7 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
         html_body = _build_welcome_email(otp_record.name)
         send_html_email(otp_record.email, "Selamat Datang di PostureFit!", html_body)
     except Exception as e:
-        print(f"Failed to send welcome email: {e}")
+        logger.error("Failed to send welcome email: %s", e)
 
     # Buat JWT token langsung — user tidak perlu login manual lagi
     access_token = create_access_token(data={"sub": new_user.id})
@@ -160,7 +168,9 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
 # POST /api/auth/resend-otp — Kirim ulang OTP
 # ---------------------------------------------------------------------------
 @router.post("/resend-otp", response_model=ApiResponse, status_code=status.HTTP_200_OK)
-async def resend_otp(payload: ResendOtpRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/10minutes")
+async def resend_otp(request: Request, payload: ResendOtpRequest, db: Session = Depends(get_db)):
+    await verify_recaptcha(payload.captcha_token)
     """Kirim ulang OTP ke email yang sama (untuk kasus email tidak masuk)."""
     # Ambil data OTP terakhir yang belum digunakan
     old_otp = (
@@ -178,7 +188,7 @@ async def resend_otp(payload: ResendOtpRequest, db: Session = Depends(get_db)):
 
     # Buat OTP baru & perbarui record lama
     new_otp_code = generate_otp()
-    old_otp.otp_code   = new_otp_code
+    old_otp.otp_code   = hash_otp(new_otp_code)
     old_otp.expires_at = datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
     db.commit()
 
@@ -226,8 +236,10 @@ def _record_login(db: Session, user: User, provider: str, request: Request = Non
 # POST /api/auth/login — Login with email/password
 # ---------------------------------------------------------------------------
 @router.post("/login", response_model=Token, status_code=status.HTTP_200_OK)
+@limiter.limit("5/10minutes")
 async def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """Login and get an access token."""
+    await verify_recaptcha(payload.captcha_token)
 
     user = db.query(User).filter(User.email == payload.email).first()
 
@@ -291,7 +303,7 @@ async def google_login(payload: GoogleLoginRequest, request: Request, db: Sessio
             html_body = _build_welcome_email(user.nama_lengkap)
             send_html_email(user.email, "Selamat Datang di PostureFit (Google Sign In)!", html_body)
         except Exception as e:
-            print(f"Failed to send welcome email: {e}")
+            logger.error("Failed to send welcome email: %s", e)
     else:
         if user.foto_profil != picture_url:
             user.foto_profil = picture_url
@@ -420,14 +432,40 @@ def upload_profile_picture(
 
 
 # ---------------------------------------------------------------------------
+# DELETE /api/auth/account — Hapus akun & seluruh data pengguna
+# ---------------------------------------------------------------------------
+@router.delete("/account", response_model=ApiResponse, status_code=status.HTTP_200_OK)
+def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Hapus akun pengguna beserta seluruh data terkait (CASCADE akan menghapus semua)."""
+    uid = current_user.id
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Akun tidak ditemukan.",
+        )
+    db.delete(user)
+    db.commit()
+    return ApiResponse(
+        status="success",
+        message="Akun berhasil dihapus.",
+    )
+
+
+# ---------------------------------------------------------------------------
 # POST /api/auth/forgot-password/send-otp — Kirim OTP reset password
 # ---------------------------------------------------------------------------
 @router.post("/forgot-password/send-otp", response_model=ApiResponse, status_code=status.HTTP_200_OK)
-async def forgot_password_send_otp(payload: ForgotPasswordSendOtpRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/10minutes")
+async def forgot_password_send_otp(request: Request, payload: ForgotPasswordSendOtpRequest, db: Session = Depends(get_db)):
     """
     Langkah 1 lupa password: kirim OTP ke email yang sudah terdaftar.
     Jika email tidak terdaftar → tolak (agar tidak bocorkan informasi: tampilkan pesan netral).
     """
+    await verify_recaptcha(payload.captcha_token)
     # Cek apakah email terdaftar
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
@@ -450,7 +488,7 @@ async def forgot_password_send_otp(payload: ForgotPasswordSendOtpRequest, db: Se
 
     reset_otp = PasswordResetOtp(
         email=payload.email,
-        otp_code=otp_code,
+        otp_code=hash_otp(otp_code),
         is_used=False,
         is_verified=False,
         expires_at=expires_at,
@@ -479,7 +517,8 @@ async def forgot_password_send_otp(payload: ForgotPasswordSendOtpRequest, db: Se
 # POST /api/auth/forgot-password/verify-otp — Verifikasi OTP reset password
 # ---------------------------------------------------------------------------
 @router.post("/forgot-password/verify-otp", response_model=ApiResponse, status_code=status.HTTP_200_OK)
-def forgot_password_verify_otp(payload: ForgotPasswordVerifyOtpRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/10minutes")
+def forgot_password_verify_otp(request: Request, payload: ForgotPasswordVerifyOtpRequest, db: Session = Depends(get_db)):
     """
     Langkah 2 lupa password: verifikasi kode OTP.
     Jika valid → tandai is_verified=True → user dapat lanjut ganti password.
@@ -506,7 +545,7 @@ def forgot_password_verify_otp(payload: ForgotPasswordVerifyOtpRequest, db: Sess
             detail="Kode OTP sudah kadaluarsa. Silakan minta kode baru.",
         )
 
-    if reset_otp.otp_code != payload.otp_code.strip():
+    if reset_otp.otp_code != hash_otp(payload.otp_code.strip()):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kode OTP tidak valid.",
@@ -527,7 +566,8 @@ def forgot_password_verify_otp(payload: ForgotPasswordVerifyOtpRequest, db: Sess
 # POST /api/auth/forgot-password/reset — Ganti password setelah OTP terverifikasi
 # ---------------------------------------------------------------------------
 @router.post("/forgot-password/reset", response_model=ApiResponse, status_code=status.HTTP_200_OK)
-def forgot_password_reset(payload: ForgotPasswordResetRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/10minutes")
+def forgot_password_reset(request: Request, payload: ForgotPasswordResetRequest, db: Session = Depends(get_db)):
     """
     Langkah 3 lupa password: ganti password setelah OTP terverifikasi.
     Memvalidasi bahwa OTP sudah diverifikasi sebelum diizinkan ganti password.

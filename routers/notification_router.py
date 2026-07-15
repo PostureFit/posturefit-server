@@ -1,4 +1,5 @@
 # pyrefly: ignore [missing-import]
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
@@ -8,6 +9,8 @@ from models import Notification, User, NotificationPreference
 from schemas import NotificationOut, ApiResponse
 from auth import get_current_user
 from fcm_service import send_push_to_user
+
+logger = logging.getLogger("posturfit")
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
@@ -120,7 +123,10 @@ def create_notification(
     db.commit()
     db.refresh(notif)
 
-    send_push_to_user(db, uid, notif.title, notif.message)
+    try:
+        send_push_to_user(db, uid, notif.title, notif.message)
+    except Exception as e:
+        logger.error("Gagal kirim push notifikasi ke user %s: %s", uid, e)
 
     return ApiResponse(
         status="success",

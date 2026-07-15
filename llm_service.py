@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from typing import Optional
 
 # pyrefly: ignore [missing-import]
@@ -7,11 +8,13 @@ from dotenv import load_dotenv
 # pyrefly: ignore [missing-import]
 from google import genai
 
+logger = logging.getLogger("posturfit")
+
 load_dotenv()
 
 _API_KEY = os.getenv("GEMINI_API_KEY")
 if not _API_KEY:
-    print("[LLM] GEMINI_API_KEY tidak diatur — LLM tidak aktif, fallback ke template SAW.")
+    logger.warning("GEMINI_API_KEY tidak diatur — LLM tidak aktif, fallback ke template SAW.")
 
 _client = genai.Client(api_key=_API_KEY) if _API_KEY else None
 
@@ -75,5 +78,5 @@ def generate_recommendation(
         parsed = json.loads(text)
         return parsed
     except Exception as e:
-        print(f"[LLM] Error generating recommendation: {e}")
+        logger.error("Error generating recommendation: %s", e)
         return None

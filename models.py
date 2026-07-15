@@ -288,7 +288,7 @@ class OtpRequest(Base):
     name = Column(String(100), nullable=True)
     # password sudah di-hash
     password_hash = Column(String(255), nullable=True)
-    otp_code = Column(String(10), nullable=False)
+    otp_code = Column(String(64), nullable=False)
     is_used = Column(Boolean, default=False)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -334,7 +334,7 @@ class PasswordResetOtp(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(100), nullable=False, index=True)
-    otp_code = Column(String(10), nullable=False)
+    otp_code = Column(String(64), nullable=False)
     is_used = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)  # True setelah OTP diverifikasi, sebelum password diganti
     expires_at = Column(DateTime, nullable=False)

@@ -1,3 +1,5 @@
+import logging
+
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException, status
 # pyrefly: ignore [missing-import]
@@ -7,6 +9,8 @@ from database import get_db
 from models import WorkoutLog, User
 from schemas import WorkoutLogCreate, WorkoutLogOut, ApiResponse
 from auth import get_current_user
+
+logger = logging.getLogger("posturfit")
 
 router = APIRouter(prefix="/api/workout-log", tags=["Workout Log"])
 
@@ -58,30 +62,39 @@ def add_workout_log(
     """
     uid = current_user.id
 
-    user = db.query(User).filter(User.id == uid).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User tidak ditemukan.",
+    try:
+        user = db.query(User).filter(User.id == uid).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User tidak ditemukan.",
+            )
+
+        new_log = WorkoutLog(
+            user_id=uid,
+            title=payload.title,
+            category=payload.category,
+            duration=payload.duration,
+            calories=payload.calories,
+            image=payload.image,
         )
+        db.add(new_log)
+        db.commit()
+        db.refresh(new_log)
 
-    new_log = WorkoutLog(
-        user_id=uid,
-        title=payload.title,
-        category=payload.category,
-        duration=payload.duration,
-        calories=payload.calories,
-        image=payload.image,
-    )
-    db.add(new_log)
-    db.commit()
-    db.refresh(new_log)
-
-    return ApiResponse(
-        status="success",
-        message="Sesi latihan berhasil dicatat.",
-        data=WorkoutLogOut.from_db(new_log).model_dump(),
-    )
+        return ApiResponse(
+            status="success",
+            message="Sesi latihan berhasil dicatat.",
+            data=WorkoutLogOut.from_db(new_log).model_dump(),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("[WorkoutLog] Gagal mencatat sesi user %s: %s", uid, e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal mencatat sesi latihan. Silakan coba lagi.",
+        )
 
 
 # ---------------------------------------------------------------------------

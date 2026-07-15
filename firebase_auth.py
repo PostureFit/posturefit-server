@@ -1,9 +1,12 @@
 import os
+import logging
 from typing import Optional
 
 import firebase_admin
 from firebase_admin import auth as firebase_auth, credentials
 from dotenv import load_dotenv
+
+logger = logging.getLogger("posturfit")
 
 load_dotenv()
 
@@ -27,7 +30,7 @@ def verify_google_token(id_token: str) -> Optional[dict]:
     try:
         app = _get_app()
         if app is None:
-            print("[Firebase] Service account not configured, cannot verify token.")
+            logger.warning("Service account not configured, cannot verify token.")
             return None
 
         decoded = firebase_auth.verify_id_token(id_token, app=app)
@@ -39,5 +42,5 @@ def verify_google_token(id_token: str) -> Optional[dict]:
             "picture": decoded.get("picture"),
         }
     except Exception as e:
-        print(f"[Firebase] Token verification failed: {e}")
+        logger.error("Token verification failed: %s", e)
         return None

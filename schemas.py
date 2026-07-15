@@ -5,9 +5,10 @@ Field naming convention follows what Flutter expects in JSON responses.
 """
 
 # pyrefly: ignore [missing-import]
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional, Any, List
 from datetime import date, datetime
+import re
 
 
 # ====================================================================
@@ -22,11 +23,25 @@ class ApiResponse(BaseModel):
 # ====================================================================
 # Auth — Request & Response
 # ====================================================================
+def _validate_password(password: str) -> str:
+    if len(password) < 8:
+        raise ValueError("Password minimal 8 karakter")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password harus mengandung huruf BESAR")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password harus mengandung huruf kecil")
+    if not re.search(r"[0-9]", password):
+        raise ValueError("Password harus mengandung angka")
+    return password
+
+
 class RegisterRequest(BaseModel):
     name: str = Field(..., example="Budi Santoso")
     email: EmailStr
     phone_number: Optional[str] = Field(None, example="+6281234567890")
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=8)
+
+    _validate_password = field_validator("password")(_validate_password)
 
 class LoginRequest(BaseModel):
     email:    str
@@ -41,8 +56,10 @@ class SendOtpRequest(BaseModel):
     """Request kirim OTP ke email baru sebelum akun dibuat."""
     name:     str = Field(..., min_length=2)
     email:    str
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=8)
     captcha_token: str = ""
+
+    _validate_password = field_validator("password")(_validate_password)
 
 class VerifyOtpRequest(BaseModel):
     """Request verifikasi OTP dan finalisasi pembuatan akun."""
@@ -68,7 +85,9 @@ class ForgotPasswordVerifyOtpRequest(BaseModel):
 class ForgotPasswordResetRequest(BaseModel):
     """Request ganti password setelah OTP terverifikasi."""
     email: str
-    new_password: str = Field(..., min_length=6)
+    new_password: str = Field(..., min_length=8)
+
+    _validate_password = field_validator("new_password")(_validate_password)
 
 # ====================================================================
 # User  —  Fields match Flutter UserModel.fromJson & ProfileController

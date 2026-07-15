@@ -8,12 +8,16 @@ Kode OTP 6 digit disimpan sementara di tabel `otp_requests` MySQL.
 """
 
 import os
-import random
+import secrets
+import hashlib
 import string
 import smtplib
+import logging
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+logger = logging.getLogger("posturfit")
 
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
@@ -30,11 +34,29 @@ OTP_EXPIRE_MINUTES = int(os.getenv("OTP_EXPIRE_MINUTES", "10"))
 
 
 # ---------------------------------------------------------------------------
+# Helper — cek apakah credential SMTP masih default/dev
+# ---------------------------------------------------------------------------
+def _is_dev_credential() -> bool:
+    """Kembalikan True jika SMTP_USER / SMTP_PASSWORD kosong atau masih placeholder."""
+    if not SMTP_USER or not SMTP_PASSWORD:
+        return True
+    lower_user = SMTP_USER.lower()
+    if "emailmu" in lower_user or "ganti" in lower_user or "xxxx" in SMTP_PASSWORD.lower():
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Generate OTP
 # ---------------------------------------------------------------------------
 def generate_otp(length: int = 6) -> str:
-    """Buat kode OTP numerik acak."""
-    return "".join(random.choices(string.digits, k=length))
+    """Buat kode OTP numerik aman (cryptographically secure)."""
+    return "".join(secrets.SystemRandom().choices(string.digits, k=length))
+
+
+def hash_otp(code: str) -> str:
+    """Hash OTP dengan SHA-256 sebelum disimpan di database."""
+    return hashlib.sha256(code.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -45,9 +67,8 @@ def send_otp_email(to_email: str, otp_code: str, user_name: str = "Pengguna") ->
     Kirim email berisi kode OTP ke alamat pengirim.
     Mengembalikan True jika berhasil, False jika gagal.
     """
-    if not SMTP_USER or not SMTP_PASSWORD:
-        # Mode development: print ke console saja
-        print(f"[OTP DEV MODE] Kode OTP untuk {to_email}: {otp_code}")
+    if _is_dev_credential():
+        logger.info("OTP for %s (dev): %s", to_email, otp_code)
         return True
 
     subject = "Kode Verifikasi PostureFit"
@@ -65,10 +86,10 @@ def send_otp_email(to_email: str, otp_code: str, user_name: str = "Pengguna") ->
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.sendmail(SMTP_USER, to_email, msg.as_string())
-        print(f"[OTP] Email terkirim ke {to_email}")
+        logger.info("Email terkirim ke %s", to_email)
         return True
     except Exception as e:
-        print(f"[OTP ERROR] Gagal kirim email ke {to_email}: {e}")
+        logger.error("Gagal kirim email ke %s: %s", to_email, e)
         return False
 
 
@@ -131,8 +152,8 @@ def _build_email_html(name: str, otp: str, expire_minutes: int) -> str:
 # ---------------------------------------------------------------------------
 def send_html_email(to_email: str, subject: str, html_body: str) -> bool:
     """Kirim email HTML umum (seperti Welcome Email)."""
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print(f"[DEV MODE] Email to {to_email} | Subject: {subject}")
+    if _is_dev_credential():
+        logger.info("Email to %s (dev): %s", to_email, subject)
         return True
 
     msg = MIMEMultipart("alternative")
@@ -149,7 +170,7 @@ def send_html_email(to_email: str, subject: str, html_body: str) -> bool:
             server.sendmail(SMTP_USER, to_email, msg.as_string())
         return True
     except Exception as e:
-        print(f"[SMTP ERROR] {e}")
+        logger.error("SMTP error: %s", e)
         return False
 
 def _build_welcome_email(name: str) -> str:

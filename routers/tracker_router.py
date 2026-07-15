@@ -7,6 +7,8 @@ Response fields aligned with Flutter ActivityEntity:
     hydration_current, hydration_target, activity_score
 """
 
+import logging
+
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException, status
 # pyrefly: ignore [missing-import]
@@ -17,6 +19,8 @@ from database import get_db
 from models import DailyTracker, User
 from schemas import DailyTrackerUpdate, DailyTrackerOut, ApiResponse
 from auth import get_current_user
+
+logger = logging.getLogger("posturfit")
 
 router = APIRouter(prefix="/api/tracker", tags=["Daily Tracking"])
 
@@ -46,52 +50,61 @@ def update_daily_tracker(
     """
     uid = current_user.id
 
-    # Verify user exists
-    user = db.query(User).filter(User.id == uid).first()
-    if not user:
+    try:
+        # Verify user exists
+        user = db.query(User).filter(User.id == uid).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User tidak ditemukan.",
+            )
+
+        # Upsert tracker
+        tracker = (
+            db.query(DailyTracker)
+            .filter(
+                DailyTracker.user_id == uid,
+                DailyTracker.tanggal == payload.tanggal,
+            )
+            .first()
+        )
+
+        if tracker is None:
+            tracker = DailyTracker(user_id=uid, tanggal=payload.tanggal)
+            db.add(tracker)
+
+        # Partial update — only set provided fields
+        if payload.hidrasi_ml is not None:
+            tracker.hidrasi_ml = payload.hidrasi_ml
+        if payload.hydration_target_ml is not None:
+            tracker.hydration_target_ml = payload.hydration_target_ml
+        if payload.tidur_jam is not None:
+            tracker.tidur_jam = payload.tidur_jam
+        if payload.olahraga is not None:
+            tracker.olahraga = payload.olahraga
+        if payload.nutrisi is not None:
+            tracker.nutrisi = payload.nutrisi
+        if payload.tidur_persen is not None:
+            tracker.tidur_persen = payload.tidur_persen
+        if payload.skor_aktivitas is not None:
+            tracker.skor_aktivitas = payload.skor_aktivitas
+
+        db.commit()
+        db.refresh(tracker)
+
+        return ApiResponse(
+            status="success",
+            message="Data harian berhasil diperbarui.",
+            data=DailyTrackerOut.from_db(tracker).model_dump(),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("[Tracker] Gagal update data harian user %s: %s", uid, e, exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User tidak ditemukan.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal memperbarui data harian. Silakan coba lagi.",
         )
-
-    # Upsert tracker
-    tracker = (
-        db.query(DailyTracker)
-        .filter(
-            DailyTracker.user_id == uid,
-            DailyTracker.tanggal == payload.tanggal,
-        )
-        .first()
-    )
-
-    if tracker is None:
-        tracker = DailyTracker(user_id=uid, tanggal=payload.tanggal)
-        db.add(tracker)
-
-    # Partial update — only set provided fields
-    if payload.hidrasi_ml is not None:
-        tracker.hidrasi_ml = payload.hidrasi_ml
-    if payload.hydration_target_ml is not None:
-        tracker.hydration_target_ml = payload.hydration_target_ml
-    if payload.tidur_jam is not None:
-        tracker.tidur_jam = payload.tidur_jam
-    if payload.olahraga is not None:
-        tracker.olahraga = payload.olahraga
-    if payload.nutrisi is not None:
-        tracker.nutrisi = payload.nutrisi
-    if payload.tidur_persen is not None:
-        tracker.tidur_persen = payload.tidur_persen
-    if payload.skor_aktivitas is not None:
-        tracker.skor_aktivitas = payload.skor_aktivitas
-
-    db.commit()
-    db.refresh(tracker)
-
-    return ApiResponse(
-        status="success",
-        message="Data harian berhasil diperbarui.",
-        data=DailyTrackerOut.from_db(tracker).model_dump(),
-    )
 
 
 # ---------------------------------------------------------------------------

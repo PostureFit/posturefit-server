@@ -1,15 +1,17 @@
 import json
+import logging
 import os
 import uuid
 import mimetypes
 from datetime import datetime
 # pyrefly: ignore [missing-import]
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User, CvAssessment
+from rate_limit import limiter
 from schemas import (
     VitalityAssessmentRequest,
     AssessmentResponse,
@@ -39,7 +41,8 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
     response_model=ImageAnalysisResponse,
     status_code=status.HTTP_200_OK,
 )
-async def analyze_image(file: UploadFile = File(...)):
+@limiter.limit("10/minute")
+async def analyze_image(request: Request, file: UploadFile = File(...)):
     ext = os.path.splitext(file.filename or "")[1].lower()
     if file.content_type and file.content_type not in ALLOWED_MIME_TYPES and ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -116,87 +119,98 @@ def generate_recommendation(
     db: Session = Depends(get_db),
 ):
     uid = current_user.id
+    _logger = logging.getLogger("posturfit")
 
-    user = db.query(User).filter(User.id == uid).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User tidak ditemukan. Silakan login terlebih dahulu.",
+    try:
+        user = db.query(User).filter(User.id == uid).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User tidak ditemukan. Silakan login terlebih dahulu.",
+            )
+
+        bmi  = calculate_bmi(payload.berat_kg, payload.tinggi_cm)
+        whtr = calculate_whtr(payload.lingkar_perut_cm, payload.tinggi_cm)
+
+        wsr_val = payload.wsr or 0.0
+
+        kategori_tubuh, rekomendasi_teks, saw_scores = calculate_saw(
+            bmi=bmi,
+            whtr=whtr,
+            umur=payload.umur,
+            lingkar_perut_cm=payload.lingkar_perut_cm,
+            wsr=wsr_val,
         )
 
-    bmi  = calculate_bmi(payload.berat_kg, payload.tinggi_cm)
-    whtr = calculate_whtr(payload.lingkar_perut_cm, payload.tinggi_cm)
+        user.umur             = payload.umur
+        user.tinggi_cm        = payload.tinggi_cm
+        user.berat_kg         = payload.berat_kg
+        user.lingkar_perut_cm = payload.lingkar_perut_cm
+        user.bmi_terkini      = bmi
+        user.fokus_utama      = kategori_tubuh
+        if payload.fokus_pilihan:
+            user.fokus_pilihan = payload.fokus_pilihan
 
-    wsr_val = payload.wsr or 0.0
-
-    kategori_tubuh, rekomendasi_teks, saw_scores = calculate_saw(
-        bmi=bmi,
-        whtr=whtr,
-        umur=payload.umur,
-        lingkar_perut_cm=payload.lingkar_perut_cm,
-        wsr=wsr_val,
-    )
-
-    user.umur             = payload.umur
-    user.tinggi_cm        = payload.tinggi_cm
-    user.berat_kg         = payload.berat_kg
-    user.lingkar_perut_cm = payload.lingkar_perut_cm
-    user.bmi_terkini      = bmi
-    user.fokus_utama      = kategori_tubuh
-    if payload.fokus_pilihan:
-        user.fokus_pilihan = payload.fokus_pilihan
-
-    lingkungan = payload.lingkungan or "Rumah"
-    analisis_llm = llm_recommendation(
-        kategori=kategori_tubuh,
-        bmi=bmi,
-        wsr=wsr_val,
-        posture_score=payload.posture_score or 50.0,
-        shoulder_balance=payload.shoulder_balance or 0.0,
-        fokus=payload.fokus_pilihan or "Pertahankan",
-        lingkungan=lingkungan,
-    )
-
-    # Generate annotated_image_url from image_url
-    def _annotated_url(url):
-        if not url:
-            return ""
-        base, ext = os.path.splitext(url)
-        return f"{base}_annotated{ext}"
-
-    new_scan = CvAssessment(
-        user_id=uid,
-        image_url=payload.image_url or "",
-        tinggi_cm=payload.tinggi_cm,
-        berat_kg=payload.berat_kg,
-        lingkar_perut_cm=payload.lingkar_perut_cm,
-        umur=payload.umur,
-        bmi_kalkulasi=bmi,
-        kategori_tubuh=kategori_tubuh,
-        rekomendasi=rekomendasi_teks,
-        saw_scores=json.dumps(saw_scores),
-        wsr=wsr_val if wsr_val > 0 else None,
-        posture_score=payload.posture_score,
-        shoulder_balance=payload.shoulder_balance,
-        analisis_llm=json.dumps(analisis_llm) if analisis_llm else None,
-        annotated_image_url=_annotated_url(payload.image_url),
-    )
-    db.add(new_scan)
-    db.commit()
-    db.refresh(new_scan)
-
-    return AssessmentResponse(
-        data=AssessmentResult(
+        lingkungan = payload.lingkungan or "Rumah"
+        analisis_llm = llm_recommendation(
+            kategori=kategori_tubuh,
             bmi=bmi,
+            wsr=wsr_val,
+            posture_score=payload.posture_score or 50.0,
+            shoulder_balance=payload.shoulder_balance or 0.0,
+            fokus=payload.fokus_pilihan or "Pertahankan",
+            lingkungan=lingkungan,
+        )
+
+        # Generate annotated_image_url from image_url
+        def _annotated_url(url):
+            if not url:
+                return ""
+            base, ext = os.path.splitext(url)
+            return f"{base}_annotated{ext}"
+
+        new_scan = CvAssessment(
+            user_id=uid,
+            image_url=payload.image_url or "",
+            tinggi_cm=payload.tinggi_cm,
+            berat_kg=payload.berat_kg,
+            lingkar_perut_cm=payload.lingkar_perut_cm,
+            umur=payload.umur,
+            bmi_kalkulasi=bmi,
             kategori_tubuh=kategori_tubuh,
             rekomendasi=rekomendasi_teks,
-            saw_scores=saw_scores,
-            wsr=wsr_val,
+            saw_scores=json.dumps(saw_scores),
+            wsr=wsr_val if wsr_val > 0 else None,
             posture_score=payload.posture_score,
-            analisis_llm=analisis_llm,
-            image_url=payload.image_url or None,
+            shoulder_balance=payload.shoulder_balance,
+            analisis_llm=json.dumps(analisis_llm) if analisis_llm else None,
+            annotated_image_url=_annotated_url(payload.image_url),
         )
-    )
+        db.add(new_scan)
+        db.commit()
+        db.refresh(new_scan)
+
+        return AssessmentResponse(
+            data=AssessmentResult(
+                bmi=bmi,
+                kategori_tubuh=kategori_tubuh,
+                rekomendasi=rekomendasi_teks,
+                saw_scores=saw_scores,
+                wsr=wsr_val,
+                posture_score=payload.posture_score,
+                analisis_llm=analisis_llm,
+                image_url=payload.image_url or None,
+            )
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("[Assessment] Gagal generate untuk user %s: %s", uid, e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal memproses assessment. Silakan coba lagi.",
+        )
+
 
 
 # ---------------------------------------------------------------------------

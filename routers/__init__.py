@@ -1,10 +1,9 @@
-from routers import (
-    auth_router,
-    cv_router,
-    tracker_router,
-    home_router,
-    workout_log_router,
-    education_router,
-    notification_router,
-    progress_router,
-)
+from . import auth_router
+from . import cv_router
+from . import tracker_router
+from . import home_router
+from . import workout_log_router
+from . import education_router
+from . import notification_router
+from . import progress_router
+from . import workout_plan_router

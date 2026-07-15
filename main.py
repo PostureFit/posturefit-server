@@ -8,11 +8,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # pyrefly: ignore [missing-import]
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore [missing-import]
 from fastapi.responses import RedirectResponse, JSONResponse
+# pyrefly: ignore [missing-import]
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from rate_limit import limiter
 # pyrefly: ignore [missing-import]
 from fastapi.staticfiles import StaticFiles
 # pyrefly: ignore [missing-import]
@@ -32,6 +36,7 @@ logging.basicConfig(
 logger = logging.getLogger("posturfit")
 
 from database import engine, Base
+from sqlalchemy import text
 from admin_auth import AdminAuthBackend
 from admin_change_password import router as change_password_router
 from sync_service import sync_education_from_mongo
@@ -51,6 +56,7 @@ from routers import (
     education_router,
     notification_router,
     progress_router,
+    workout_plan_router,
 )
 
 # Secret key untuk menandatangani session cookie — WAJIB ada di .env
@@ -65,12 +71,17 @@ if not _SESSION_SECRET:
 MAX_BODY_SIZE = 5 * 1024 * 1024  # 5MB
 
 async def _body_size_middleware(request: Request, call_next):
-    content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > MAX_BODY_SIZE:
-        return JSONResponse(
-            status_code=413,
-            content={"status": "error", "message": "Request body terlalu besar. Maksimal 5MB."},
-        )
+    try:
+        content_length = request.headers.get("content-length")
+        if content_length:
+            size = int(content_length)
+            if size > MAX_BODY_SIZE:
+                return JSONResponse(
+                    status_code=413,
+                    content={"status": "error", "message": "Request body terlalu besar. Maksimal 5MB."},
+                )
+    except (ValueError, TypeError):
+        pass
     return await call_next(request)
 
 
@@ -81,9 +92,33 @@ async def _body_size_middleware(request: Request, call_next):
 _scheduler = AsyncIOScheduler()
 
 
+def _run_migrations():
+    """Jalankan migration untuk menyesuaikan skema database."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE otp_requests MODIFY otp_code VARCHAR(64) NOT NULL"
+            ))
+            conn.commit()
+            logger.info("[Migration] otp_requests.otp_code → VARCHAR(64)")
+    except Exception as e:
+        logger.warning("[Migration] otp_requests gagal: %s", e)
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE password_reset_otps MODIFY otp_code VARCHAR(64) NOT NULL"
+            ))
+            conn.commit()
+            logger.info("[Migration] password_reset_otps.otp_code → VARCHAR(64)")
+    except Exception as e:
+        logger.warning("[Migration] password_reset_otps gagal: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _run_migrations()
 
     try:
         result = await asyncio.wait_for(sync_education_from_mongo(), timeout=15.0)
@@ -122,6 +157,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ---------------------------------------------------------------------------
+# Rate Limiter  —  slowapi
+# ---------------------------------------------------------------------------
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # ---------------------------------------------------------------------------
 # Middleware — order matters
@@ -132,14 +173,25 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=_SESSION_SECRET,
     session_cookie="pf_admin_session",
-    max_age=60 * 60 * 8,        # 8 hours
-    https_only=False,           # Set True in production with HTTPS
+    max_age=60 * 60 * 8,               # 8 hours
+    https_only=os.getenv("APP_ENV", "development") == "production",
     same_site="lax",
 )
 
+_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8001",
+]
+if os.getenv("APP_ENV", "development") == "production":
+    _ALLOWED_ORIGINS = [
+        "https://posturefit-server.com",  # ganti dengan domain production
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # Restrict in production
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -191,6 +243,7 @@ app.include_router(workout_log_router.router)
 app.include_router(education_router.router)
 app.include_router(notification_router.router)
 app.include_router(progress_router.router)
+app.include_router(workout_plan_router.router)
 app.include_router(admin_api_router)
 
 
@@ -225,3 +278,40 @@ def health_check():
             "docs":         "/docs",
         },
     }
+
+# ---------------------------------------------------------------------------
+# Global Exception Handlers  —  return JSON instead of HTML
+# ---------------------------------------------------------------------------
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"status": "error", "message": exc.detail},
+    )
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=404,
+        content={"status": "error", "message": "Endpoint tidak ditemukan."},
+    )
+
+
+@app.exception_handler(405)
+async def method_not_allowed_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=405,
+        content={"status": "error", "message": "Metode tidak diizinkan."},
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error("[500] %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "message": "Terjadi kesalahan internal server."},
+    )
+
+

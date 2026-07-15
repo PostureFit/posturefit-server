@@ -1,5 +1,5 @@
 # pyrefly: ignore [missing-import]
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, HTTPException, status
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 # pyrefly: ignore [missing-import]
@@ -9,6 +9,7 @@ from database import get_db
 # pyrefly: ignore [missing-import]
 from sqladmin import ModelView
 from sync_service import sync_education_from_mongo
+from admin_auth import _SESSION_TOKEN, _BOOT_TOKEN
 from models import (
     User, CvAssessment, DailyTracker,
     DailyWorkoutPlan, WorkoutTask,
@@ -48,6 +49,7 @@ class UserAdmin(ModelView, model=User):
     column_searchable_list = [User.nama_lengkap, User.email]
     column_sortable_list   = [User.created_at, User.bmi_terkini, User.last_login_at]
     column_default_sort    = ("created_at", True)
+    form_excluded_columns = ["created_at", "last_login_at", "password_hash"]
     column_labels = {
         "auth_provider": "Provider",
         "last_login_at": "Terakhir Login",
@@ -78,6 +80,7 @@ class CvAssessmentAdmin(ModelView, model=CvAssessment):
         "image_url": lambda m, a: _render_image(m.image_url),
         "annotated_image_url": lambda m, a: _render_image(m.annotated_image_url),
     }
+    form_excluded_columns = ["tanggal_scan"]
     column_labels = {
         "image_url":            "Foto",
         "annotated_image_url":  "Foto + Landmark",
@@ -148,6 +151,7 @@ class WorkoutLogAdmin(ModelView, model=WorkoutLog):
         WorkoutLog.calories,
         WorkoutLog.logged_at,
     ]
+    form_excluded_columns = ["logged_at"]
     column_searchable_list = [WorkoutLog.title, WorkoutLog.category]
     column_sortable_list   = [WorkoutLog.logged_at]
     column_default_sort    = ("logged_at", True)
@@ -164,6 +168,7 @@ class EducationArticleAdmin(ModelView, model=EducationArticle):
         EducationArticle.sumber,
         EducationArticle.updated_at,
     ]
+    form_excluded_columns = ["updated_at"]
     column_searchable_list = [EducationArticle.judul, EducationArticle.kategori]
     column_sortable_list   = [EducationArticle.updated_at]
     column_default_sort    = ("updated_at", True)
@@ -264,6 +269,7 @@ class NotificationPreferenceAdmin(ModelView, model=NotificationPreference):
         NotificationPreference.system_enabled,
         NotificationPreference.updated_at,
     ]
+    form_excluded_columns = ["created_at", "updated_at"]
     column_searchable_list = [NotificationPreference.user_id]
     column_sortable_list   = [NotificationPreference.updated_at]
     column_default_sort    = ("updated_at", True)
@@ -300,8 +306,18 @@ class LoginLogAdmin(ModelView, model=LoginLog):
 admin_api_router = APIRouter(prefix="/admin-api", tags=["Admin API"])
 
 
+def _require_admin_api(request: Request):
+    """Cek session admin — sama seperti AdminAuthBackend.authenticate()."""
+    if (
+        request.session.get("token") != _SESSION_TOKEN or
+        request.session.get("boot_token") != _BOOT_TOKEN
+    ):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+
 @admin_api_router.get("/stats")
-def get_admin_stats(db: Session = Depends(get_db)):
+def get_admin_stats(request: Request, db: Session = Depends(get_db)):
+    _require_admin_api(request)
     total_users          = db.query(User).count()
     total_scans          = db.query(CvAssessment).count()
     total_plans          = db.query(DailyWorkoutPlan).count()
@@ -416,7 +432,8 @@ def get_admin_stats(db: Session = Depends(get_db)):
 
 
 @admin_api_router.post("/sync-education")
-async def admin_sync_education():
+async def admin_sync_education(request: Request):
+    _require_admin_api(request)
     """
     Endpoint trigger sinkronisasi manual MongoDB → MySQL.
     Dipanggil dari tombol di Admin Dashboard.

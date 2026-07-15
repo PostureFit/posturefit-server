@@ -38,7 +38,7 @@ class AdminAuthBackend(AuthenticationBackend):
         # Verifikasi reCAPTCHA
         captcha_token = form.get("g-recaptcha-response", "")
         try:
-            await verify_recaptcha(captcha_token)
+            await verify_recaptcha(captcha_token, required=True)
         except HTTPException:
             return False
 

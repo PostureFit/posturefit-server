@@ -5,9 +5,14 @@ from fastapi import HTTPException, status
 RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify"
 
 
-async def verify_recaptcha(captcha_token: str) -> bool:
+async def verify_recaptcha(captcha_token: str, required: bool = False) -> bool:
     # Flutter mobile tidak menggunakan CAPTCHA, skip verifikasi jika token kosong
     if not captcha_token or not captcha_token.strip():
+        if required:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verifikasi CAPTCHA gagal. Silakan coba lagi.",
+            )
         return True
 
     secret_key = os.getenv("RECAPTCHA_SECRET_KEY", "")

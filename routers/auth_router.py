@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger("posturfit")
 
 from database import get_db
-from models import User, OtpRequest, PasswordResetOtp, FcmToken, LoginLog
+from models import User, OtpRequest, PasswordResetOtp, EmailChangeOtp, FcmToken, LoginLog
 from auth import hash_password, verify_password, create_access_token, get_current_user
 from otp_service import generate_otp, hash_otp, send_otp_email, OTP_EXPIRE_MINUTES, send_html_email
 from rate_limit import limiter
@@ -21,6 +21,7 @@ from schemas import (
     LoginRequest, GoogleLoginRequest, RegisterRequest, Token,
     SendOtpRequest, VerifyOtpRequest, ResendOtpRequest,
     ForgotPasswordSendOtpRequest, ForgotPasswordVerifyOtpRequest, ForgotPasswordResetRequest,
+    ChangeEmailSendOtpRequest, ChangeEmailVerifyOtpRequest,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -620,6 +621,156 @@ def forgot_password_reset(request: Request, payload: ForgotPasswordResetRequest,
 
 
 # ---------------------------------------------------------------------------
+# POST /api/auth/change-email/send-otp — Kirim OTP ke email baru
+# ---------------------------------------------------------------------------
+@router.post("/change-email/send-otp", response_model=ApiResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("3/10minutes")
+async def change_email_send_otp(
+    request: Request,
+    payload: ChangeEmailSendOtpRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Langkah 1 ganti email: verifikasi password user, kirim OTP ke email baru.
+    """
+    # Verifikasi password user
+    if not verify_password(payload.password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Password salah.",
+        )
+
+    # Cek apakah email baru sudah dipakai user lain
+    existing = db.query(User).filter(User.email == payload.new_email).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email sudah terdaftar. Silakan gunakan email lain.",
+        )
+
+    # Hapus OTP lama yang belum digunakan untuk user ini
+    db.query(EmailChangeOtp).filter(
+        EmailChangeOtp.user_id == current_user.id,
+        EmailChangeOtp.is_used == False,
+    ).delete()
+    db.commit()
+
+    # Buat OTP baru
+    otp_code = generate_otp()
+    expires_at = datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
+
+    otp_record = EmailChangeOtp(
+        user_id=current_user.id,
+        new_email=payload.new_email,
+        old_email=current_user.email,
+        otp_code=hash_otp(otp_code),
+        is_used=False,
+        is_verified=False,
+        expires_at=expires_at,
+    )
+    db.add(otp_record)
+    db.commit()
+
+    # Kirim email OTP ke email baru
+    html_body = _build_email_change_email(current_user.nama_lengkap, otp_code, OTP_EXPIRE_MINUTES)
+    sent = send_html_email(payload.new_email, "Konfirmasi Perubahan Email - PostureFit", html_body)
+
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal mengirim email verifikasi. Coba lagi.",
+        )
+
+    return ApiResponse(
+        status="success",
+        message=f"Kode OTP telah dikirim ke {payload.new_email}. Berlaku {OTP_EXPIRE_MINUTES} menit.",
+        data={"new_email": payload.new_email, "expires_minutes": OTP_EXPIRE_MINUTES},
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/auth/change-email/verify-otp — Verifikasi OTP & update email
+# ---------------------------------------------------------------------------
+@router.post("/change-email/verify-otp", response_model=ApiResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("5/10minutes")
+def change_email_verify_otp(
+    request: Request,
+    payload: ChangeEmailVerifyOtpRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Langkah 2 ganti email: verifikasi OTP, lalu update email user di database.
+    """
+    otp_record = (
+        db.query(EmailChangeOtp)
+        .filter(
+            EmailChangeOtp.user_id == current_user.id,
+            EmailChangeOtp.new_email == payload.new_email,
+            EmailChangeOtp.is_used == False,
+        )
+        .order_by(EmailChangeOtp.created_at.desc())
+        .first()
+    )
+
+    if not otp_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP tidak ditemukan. Silakan minta kode baru.",
+        )
+
+    if datetime.utcnow() > otp_record.expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kode OTP sudah kadaluarsa. Silakan minta kode baru.",
+        )
+
+    if otp_record.otp_code != hash_otp(payload.otp_code.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kode OTP tidak valid.",
+        )
+
+    # Cek race condition: pastikan email baru masih belum dipakai
+    existing = db.query(User).filter(User.email == payload.new_email).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email sudah terdaftar oleh pengguna lain. Silakan gunakan email lain.",
+        )
+
+    # Update email user
+    old_email = current_user.email
+    current_user.email = payload.new_email
+    otp_record.is_verified = True
+    otp_record.is_used = True
+    db.commit()
+
+    # Kirim notifikasi ke email lama
+    try:
+        notif_html = f"""
+<!DOCTYPE html>
+<html><body style="font-family:sans-serif;padding:20px;">
+<h2>🔔 Email Akun Diubah</h2>
+<p>Halo {current_user.nama_lengkap},</p>
+<p>Email akun PostureFit Anda telah berhasil diubah dari <strong>{old_email}</strong> menjadi <strong>{payload.new_email}</strong>.</p>
+<p>Jika Anda tidak melakukan perubahan ini, segera hubungi tim dukungan kami.</p>
+<br>
+<p>Salam,<br><b>Tim PostureFit</b></p>
+</body></html>"""
+        send_html_email(old_email, "Email Akun PostureFit Berhasil Diubah", notif_html)
+    except Exception as e:
+        logger.error("Gagal kirim notifikasi email change ke %s: %s", old_email, e)
+
+    return ApiResponse(
+        status="success",
+        message="Email berhasil diperbarui.",
+        data=UserOut.from_db(current_user).model_dump(),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Helper: Template Email OTP Reset Password
 # ---------------------------------------------------------------------------
 def _build_reset_otp_email(name: str, otp: str, expire_minutes: int) -> str:
@@ -660,6 +811,59 @@ def _build_reset_otp_email(name: str, otp: str, expire_minutes: int) -> str:
       </div>
       <div class="warning">
         ⚠️ Jangan bagikan kode ini kepada siapa pun. Jika Anda tidak meminta reset password, abaikan email ini dan password Anda tidak akan berubah.
+      </div>
+    </div>
+    <div class="footer">
+      &copy; 2026 PostureFit · Semua hak dilindungi<br>
+      Jaga postur, jaga kesehatan 💪
+    </div>
+    </div>
+  </body>
+</html>
+"""
+
+
+# ---------------------------------------------------------------------------
+# Helper: Template Email OTP Ganti Email
+# ---------------------------------------------------------------------------
+def _build_email_change_email(name: str, otp: str, expire_minutes: int) -> str:
+    return f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }}
+    .container {{ max-width: 520px; margin: 40px auto; background: white; border-radius: 16px;
+                  box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; }}
+    .header {{ background: linear-gradient(135deg, #4A90D9, #5BB8F5); padding: 32px 24px; text-align: center; }}
+    .header h1 {{ color: white; margin: 12px 0 0; font-size: 24px; font-weight: 700; }}
+    .body {{ padding: 32px 24px; }}
+    .body p {{ color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }}
+    .otp-box {{ background: #e8f4f8; border: 2px dashed #4A90D9; border-radius: 12px;
+                text-align: center; padding: 24px; margin: 24px 0; }}
+    .otp-code {{ font-size: 40px; font-weight: 800; letter-spacing: 10px; color: #2c6f9c;
+                  font-family: 'Courier New', monospace; }}
+    .expire {{ color: #999; font-size: 13px; margin-top: 8px; }}
+    .footer {{ background: #fafafa; padding: 20px 24px; text-align: center; color: #bbb; font-size: 12px; }}
+    .warning {{ background: #fff3e0; border-left: 4px solid #ff9800; padding: 12px 16px;
+                border-radius: 4px; color: #795548; font-size: 13px; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✉️ PostureFit</h1>
+    </div>
+    <div class="body">
+      <p>Halo <strong>{name}</strong>,</p>
+      <p>Kami menerima permintaan untuk <strong>mengubah alamat email</strong> akun PostureFit Anda. Gunakan kode OTP di bawah ini untuk mengkonfirmasi email baru Anda.</p>
+      <div class="otp-box">
+        <div class="otp-code">{otp}</div>
+        <div class="expire">⏱ Berlaku selama {expire_minutes} menit</div>
+      </div>
+      <div class="warning">
+        ⚠️ Jangan bagikan kode ini kepada siapa pun. Jika Anda tidak meminta perubahan email, abaikan email ini.
       </div>
     </div>
     <div class="footer">

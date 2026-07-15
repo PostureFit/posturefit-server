@@ -340,3 +340,21 @@ class PasswordResetOtp(Base):
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
+# ---------------------------------------------------------------------------
+# EmailChangeOtp  —  OTP untuk verifikasi perubahan email
+# User memasukkan email baru → OTP dikirim ke email baru → diverifikasi
+# ---------------------------------------------------------------------------
+class EmailChangeOtp(Base):
+    __tablename__ = "email_change_otps"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    new_email = Column(String(100), nullable=False)
+    old_email = Column(String(100), nullable=False)
+    otp_code = Column(String(64), nullable=False)
+    is_used = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+

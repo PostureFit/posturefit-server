@@ -89,6 +89,16 @@ class ForgotPasswordResetRequest(BaseModel):
 
     _validate_password = field_validator("new_password")(_validate_password)
 
+class ChangeEmailSendOtpRequest(BaseModel):
+    """Kirim OTP ke email baru untuk verifikasi perubahan email."""
+    new_email: EmailStr
+    password: str
+
+class ChangeEmailVerifyOtpRequest(BaseModel):
+    """Verifikasi OTP dan update email user."""
+    new_email: str
+    otp_code: str = Field(..., min_length=4, max_length=10)
+
 # ====================================================================
 # User  —  Fields match Flutter UserModel.fromJson & ProfileController
 # ====================================================================
